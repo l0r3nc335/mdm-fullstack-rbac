@@ -130,3 +130,59 @@ export type Subscription = {
   seats: number;
   renewsAt: string;
 };
+
+export type NamedCount = {
+  name: string;
+  count: number;
+};
+
+export type DashboardStats = {
+  scope: 'platform' | 'organization' | 'team' | 'self';
+  organization: { id: number; uuid: string; name: string } | null;
+  summary: {
+    organizationCount?: number;
+    userCount: number;
+    activeUserCount: number;
+    inactiveUserCount: number;
+    teamCount: number;
+    contentCount: number;
+    reportCount?: number;
+    seats: number | null;
+    seatsUsed: number | null;
+    seatsUtilization: number | null;
+    profileCompletenessAvg: number;
+  };
+  subscription: {
+    plan: string;
+    status: string;
+    seats: number;
+    renewsAt: string;
+  } | null;
+  usersByRole: NamedCount[];
+  teamSizes: Array<{ id: number; name: string; memberCount: number }>;
+  departments: NamedCount[];
+  employmentTypes: NamedCount[];
+  genders: NamedCount[];
+  cities: NamedCount[];
+  jobTitles: NamedCount[];
+  tenureBuckets: NamedCount[];
+  profileCompleteness: {
+    complete: number;
+    partial: number;
+    empty: number;
+    averageScore: number;
+  };
+  organizations?: Array<{
+    id: number;
+    uuid: string;
+    name: string;
+    userCount: number;
+    teamCount: number;
+    plan: string | null;
+    status: string | null;
+    seats: number | null;
+    seatsUtilization: number | null;
+  }>;
+  subscriptionsByPlan?: NamedCount[];
+  subscriptionsByStatus?: NamedCount[];
+};

@@ -3,6 +3,7 @@ import type {
   AppUser,
   AuthUser,
   ContentItem,
+  DashboardStats,
   DemoAccount,
   Organization,
   Role,
@@ -225,6 +226,16 @@ export async function fetchAvatarBlob(orgUuid: string, id: number) {
 
 export async function fetchSubscription(orgUuid: string) {
   const { data } = await api.get<Data<Subscription>>(`/organizations/${orgUuid}/subscription`);
+  return data.data;
+}
+
+export async function fetchPlatformStats() {
+  const { data } = await api.get<Data<DashboardStats>>('/stats/platform');
+  return data.data;
+}
+
+export async function fetchOrganizationStats(orgUuid: string) {
+  const { data } = await api.get<Data<DashboardStats>>(`/organizations/${orgUuid}/stats`);
   return data.data;
 }
 
