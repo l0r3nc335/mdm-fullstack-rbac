@@ -1,0 +1,78 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Express API to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Rsync backend to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          BE_EC2_DEPLOY_PATH: ${{ secrets.BE_EC2_DEPLOY_PATH }}
+        run: |
+          PORT="${EC2_PORT:-22}"
+          REMOTE="${EC2_USER}@${EC2_HOST}"
+          DEST="${BE_EC2_DEPLOY_PATH}"
+
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/ec2_key -p ${PORT} -o StrictHostKeyChecking=yes" \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude 'node_modules' \
+            --exclude 'dist' \
+            --exclude 'uploads' \
+            backend/ \
+            "${REMOTE}:${DEST}/"
+
+      - name: Remote install, migrate & reload
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          BE_EC2_DEPLOY_PATH: ${{ secrets.BE_EC2_DEPLOY_PATH }}
+          BE_EC2_RELOAD_CMD: ${{ secrets.BE_EC2_RELOAD_CMD }}
+        run: |
+          PORT="${EC2_PORT:-22}"
+          REMOTE="${EC2_USER}@${EC2_HOST}"
+          DEST="${BE_EC2_DEPLOY_PATH}"
+          RELOAD="${BE_EC2_RELOAD_CMD:-echo 'deploy complete'}"
+
+          ssh -i ~/.ssh/ec2_key -p "${PORT}" "${REMOTE}" bash -s <<EOF
+          set -euo pipefail
+          cd "${DEST}"
+          npm ci
+          npx prisma generate
+          npx prisma migrate deploy
+          npm run build
+          ${RELOAD}
+          EOF

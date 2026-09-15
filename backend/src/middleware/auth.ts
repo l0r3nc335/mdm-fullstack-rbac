@@ -42,7 +42,11 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     }
 
     const token = header.slice('Bearer '.length);
-    const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    const verified = jwt.verify(token, config.jwtSecret);
+    if (typeof verified === 'string' || typeof verified.sub !== 'number') {
+      throw unauthorized('Invalid token payload');
+    }
+    const payload = verified as unknown as JwtPayload;
 
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },

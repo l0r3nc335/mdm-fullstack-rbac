@@ -9,7 +9,7 @@ export async function resolveTenant(req: Request, _res: Response, next: NextFunc
       throw unauthorized();
     }
 
-    const orgUuid = req.params.orgUuid;
+    const orgUuid = typeof req.params.orgUuid === 'string' ? req.params.orgUuid : undefined;
     if (!orgUuid) {
       throw notFound('Organization UUID required');
     }
