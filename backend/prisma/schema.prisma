@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  uuid      String   @unique @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  teams        Team[]
+  users        User[]
+  roles        Role[]
+  contentItems ContentItem[]
+  subscription Subscription?
+
+  @@map("organizations")
+}
+
+model Team {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  managerUserId  Int      @map("manager_user_id")
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  manager      User         @relation("TeamManager", fields: [managerUserId], references: [id])
+  members      User[]       @relation("TeamMembers")
+
+  @@index([organizationId])
+  @@map("teams")
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?     @map("organization_id")
+  teamId         Int?     @map("team_id")
+  managerId      Int?     @map("manager_id")
+  email          String   @unique
+  passwordHash   String   @map("password_hash")
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  team         Team?         @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  manager      User?         @relation("UserManager", fields: [managerId], references: [id])
+  reports      User[]        @relation("UserManager")
+  managedTeams Team[]        @relation("TeamManager")
+  userRoles    UserRole[]
+  contentItems ContentItem[]
+
+  @@index([organizationId])
+  @@index([teamId])
+  @@index([managerId])
+  @@map("users")
+}
+
+model Role {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?     @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  isSystem       Boolean  @default(false) @map("is_system")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization    Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId Int @map("user_id")
+  roleId Int @map("role_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model ContentItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  userId         Int       @map("user_id")
+  title          String
+  avatarKey      String?   @map("avatar_key")
+  phone          String?
+  dateOfBirth    DateTime? @map("date_of_birth") @db.Date
+  gender         String?
+  bio            String?   @db.Text
+  street         String?
+  city           String?
+  state          String?
+  postalCode     String?   @map("postal_code")
+  country        String?
+  jobTitle       String?   @map("job_title")
+  department     String?
+  employeeNumber String?   @map("employee_number")
+  employmentType String?   @map("employment_type")
+  startDate      DateTime? @map("start_date") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("content_items")
+}
+
+model Subscription {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @unique @map("organization_id")
+  plan           String   @default("starter")
+  status         String   @default("active")
+  seats          Int      @default(50)
+  renewsAt       DateTime @map("renews_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}

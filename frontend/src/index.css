@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+  --brand: #0f766e;
+  --brand-dark: #115e59;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --surface: #f8fafc;
+  --panel: #ffffff;
+  --line: #e2e8f0;
+  --accent: #ea580c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(234, 88, 12, 0.08), transparent 35%),
+    var(--surface);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

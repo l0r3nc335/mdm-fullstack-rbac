@@ -1,0 +1,135 @@
+import { useState, type FormEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createTeam, deleteTeam, fetchTeams, fetchUsers } from '../lib/services';
+import { useOrgUuid, usePermissions } from '../hooks/redux';
+
+export function TeamsPage() {
+  const orgUuid = useOrgUuid();
+  const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const [name, setName] = useState('');
+  const [managerUserId, setManagerUserId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const teamsQuery = useQuery({
+    queryKey: ['teams', orgUuid],
+    queryFn: () => fetchTeams(orgUuid!),
+    enabled: Boolean(orgUuid),
+  });
+
+  const usersQuery = useQuery({
+    queryKey: ['users', orgUuid],
+    queryFn: () => fetchUsers(orgUuid!),
+    enabled: Boolean(orgUuid) && hasPermission('team:manage'),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createTeam(orgUuid!, {
+        name,
+        managerUserId: Number(managerUserId),
+      }),
+    onSuccess: () => {
+      setName('');
+      setManagerUserId('');
+      queryClient.invalidateQueries({ queryKey: ['teams', orgUuid] });
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteTeam(orgUuid!, id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teams', orgUuid] }),
+    onError: (err: Error) => setError(err.message),
+  });
+
+  if (!orgUuid) {
+    return <p className="text-slate-500">Select an organization to manage teams.</p>;
+  }
+
+  function onCreate(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    createMutation.mutate();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold">Teams</h2>
+        <p className="text-slate-500">Each team is led by a manager with 20 seeded employees.</p>
+      </div>
+
+      {hasPermission('team:manage') && (
+        <form onSubmit={onCreate} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-3">
+          <input
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            placeholder="Team name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <select
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            value={managerUserId}
+            onChange={(e) => setManagerUserId(e.target.value)}
+            required
+          >
+            <option value="">Select manager</option>
+            {usersQuery.data?.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.firstName} {user.lastName} ({user.email})
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="rounded-lg bg-teal-700 px-4 py-2 text-white">
+            Create team
+          </button>
+        </form>
+      )}
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3">Manager</th>
+              <th className="px-4 py-3">Members</th>
+              <th className="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {teamsQuery.data?.map((team) => (
+              <tr key={team.id} className="border-t border-slate-100">
+                <td className="px-4 py-3 font-medium">{team.name}</td>
+                <td className="px-4 py-3">
+                  {team.manager
+                    ? `${team.manager.firstName} ${team.manager.lastName}`
+                    : team.managerUserId}
+                </td>
+                <td className="px-4 py-3">{team._count?.members ?? '—'}</td>
+                <td className="px-4 py-3">
+                  {hasPermission('team:manage') && (
+                    <button
+                      type="button"
+                      className="text-red-600 hover:underline"
+                      onClick={() => {
+                        if (window.confirm(`Delete ${team.name}?`)) {
+                          deleteMutation.mutate(team.id);
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

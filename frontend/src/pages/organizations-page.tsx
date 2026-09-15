@@ -1,0 +1,127 @@
+import { useState, type FormEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createOrganization, fetchOrganizations, updateOrganization } from '../lib/services';
+import { usePermissions } from '../hooks/redux';
+import { setActiveOrganization } from '../store/auth-slice';
+import { useAppDispatch } from '../hooks/redux';
+
+export function OrganizationsPage() {
+  const queryClient = useQueryClient();
+  const dispatch = useAppDispatch();
+  const { hasPermission } = usePermissions();
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const orgsQuery = useQuery({
+    queryKey: ['organizations'],
+    queryFn: fetchOrganizations,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createOrganization,
+    onSuccess: () => {
+      setName('');
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ uuid, nextName }: { uuid: string; nextName: string }) =>
+      updateOrganization(uuid, nextName),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['organizations'] }),
+    onError: (err: Error) => setError(err.message),
+  });
+
+  function onCreate(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    createMutation.mutate(name);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold">Organizations</h2>
+        <p className="text-slate-500">Super admin manages tenants across the platform.</p>
+      </div>
+
+      {hasPermission('org:manage') && (
+        <form onSubmit={onCreate} className="flex flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <input
+            className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2"
+            placeholder="New organization name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-teal-700 px-4 py-2 text-white hover:bg-teal-800"
+          >
+            Create
+          </button>
+        </form>
+      )}
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3">UUID</th>
+              <th className="px-4 py-3">Users</th>
+              <th className="px-4 py-3">Teams</th>
+              <th className="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orgsQuery.data?.map((org) => (
+              <tr key={org.id} className="border-t border-slate-100">
+                <td className="px-4 py-3 font-medium">{org.name}</td>
+                <td className="px-4 py-3 font-mono text-xs text-slate-500">{org.uuid}</td>
+                <td className="px-4 py-3">{org._count?.users ?? '—'}</td>
+                <td className="px-4 py-3">{org._count?.teams ?? '—'}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded-md bg-slate-900 px-2.5 py-1 text-xs text-white"
+                      onClick={() =>
+                        dispatch(
+                          setActiveOrganization({
+                            id: org.id,
+                            uuid: org.uuid,
+                            name: org.name,
+                          }),
+                        )
+                      }
+                    >
+                      Work in org
+                    </button>
+                    {hasPermission('org:manage') && (
+                      <button
+                        type="button"
+                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs"
+                        onClick={() => {
+                          const nextName = window.prompt('Rename organization', org.name);
+                          if (nextName) {
+                            renameMutation.mutate({ uuid: org.uuid, nextName });
+                          }
+                        }}
+                      >
+                        Rename
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
