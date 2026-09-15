@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import sharp from 'sharp';
 import { AppError } from '../utils/errors.js';
 
 const UPLOAD_ROOT = path.resolve(process.cwd(), 'uploads', 'avatars');
@@ -18,7 +17,6 @@ function detectMime(buffer: Buffer): string | null {
   for (const candidate of MAGIC) {
     if (candidate.bytes.every((byte, index) => buffer[index] === byte)) {
       if (candidate.mime === 'image/webp') {
-        // RIFF....WEBP
         if (buffer.length < 12 || buffer.toString('ascii', 8, 12) !== 'WEBP') {
           continue;
         }
@@ -30,7 +28,6 @@ function detectMime(buffer: Buffer): string | null {
 }
 
 export function avatarAbsolutePath(avatarKey: string): string {
-  // Prevent path traversal — keys are UUID.webp only
   if (!/^[a-f0-9-]{36}\.webp$/i.test(avatarKey)) {
     throw new AppError('Invalid avatar key', 400, 'INVALID_AVATAR');
   }
@@ -39,6 +36,19 @@ export function avatarAbsolutePath(avatarKey: string): string {
 
 export async function ensureUploadDir() {
   await fs.mkdir(UPLOAD_ROOT, { recursive: true });
+}
+
+async function loadSharp() {
+  try {
+    const mod = await import('sharp');
+    return mod.default;
+  } catch {
+    throw new AppError(
+      'Image processing is unavailable on this server',
+      500,
+      'AVATAR_SHARP_UNAVAILABLE',
+    );
+  }
 }
 
 export async function processAndStoreAvatar(file: Express.Multer.File): Promise<string> {
@@ -64,15 +74,16 @@ export async function processAndStoreAvatar(file: Express.Multer.File): Promise<
 
   const avatarKey = `${randomUUID()}.webp`;
   const target = avatarAbsolutePath(avatarKey);
+  const sharp = await loadSharp();
 
-  // Re-encode to strip metadata / scripts and normalize size
   try {
     await sharp(file.buffer, { failOn: 'error' })
       .rotate()
       .resize(512, 512, { fit: 'cover', withoutEnlargement: false })
       .webp({ quality: 82 })
       .toFile(target);
-  } catch {
+  } catch (error) {
+    if (error instanceof AppError) throw error;
     throw new AppError('Unable to process image', 400, 'AVATAR_PROCESS');
   }
 

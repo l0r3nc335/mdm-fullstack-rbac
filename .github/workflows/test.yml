@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Ensure sharp linux binary
+        run: npm install --workspace backend --os=linux --cpu=x64 --libc=glibc sharp
+
       - name: Generate Prisma client
         run: npx prisma generate
         working-directory: backend

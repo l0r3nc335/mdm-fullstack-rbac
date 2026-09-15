@@ -71,6 +71,7 @@ jobs:
           set -euo pipefail
           cd "${DEST}"
           npm ci
+          npm install --os=linux --cpu=x64 --libc=glibc sharp
           npx prisma generate
           npx prisma migrate deploy
           npm run build
