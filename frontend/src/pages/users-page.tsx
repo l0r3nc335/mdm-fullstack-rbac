@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ConfirmModal } from '../components/confirm-modal';
 import {
   createUser,
   deleteUser,
@@ -27,6 +28,7 @@ export function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState<AppUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
   const [editForm, setEditForm] = useState({
     email: '',
     firstName: '',
@@ -300,11 +302,7 @@ export function UsersPage() {
                     <button
                       type="button"
                       className="text-red-600 hover:underline"
-                      onClick={() => {
-                        if (window.confirm(`Delete ${user.email}?`)) {
-                          deleteMutation.mutate(user.id);
-                        }
-                      }}
+                      onClick={() => setDeleteTarget(user)}
                     >
                       Delete
                     </button>
@@ -315,6 +313,19 @@ export function UsersPage() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete user"
+        message={`Delete ${deleteTarget?.email ?? 'this user'}? This cannot be undone.`}
+        confirmLabel="Delete"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

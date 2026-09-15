@@ -32,6 +32,7 @@ export function AppLayout() {
     { to: '/users', label: 'Users', show: hasPermission('user:manage') },
     { to: '/roles', label: 'Roles', show: hasPermission('role:manage') },
     { to: '/content', label: 'Content', show: hasPermission('content:read') },
+    { to: '/profile', label: 'Profile', show: hasPermission('content:read') },
     { to: '/subscription', label: 'Subscription', show: hasPermission('subscription:manage') },
   ].filter((item) => item.show);
 

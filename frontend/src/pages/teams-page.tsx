@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ConfirmModal } from '../components/confirm-modal';
 import {
   createTeam,
   deleteTeam,
@@ -19,6 +20,7 @@ export function TeamsPage() {
   const [editName, setEditName] = useState('');
   const [editManagerUserId, setEditManagerUserId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const teamsQuery = useQuery({
     queryKey: ['teams', orgUuid],
@@ -195,11 +197,7 @@ export function TeamsPage() {
                       <button
                         type="button"
                         className="text-red-600 hover:underline"
-                        onClick={() => {
-                          if (window.confirm(`Delete ${team.name}?`)) {
-                            deleteMutation.mutate(team.id);
-                          }
-                        }}
+                        onClick={() => setDeleteTarget({ id: team.id, name: team.name })}
                       >
                         Delete
                       </button>
@@ -211,6 +209,19 @@ export function TeamsPage() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete team"
+        message={`Delete ${deleteTarget?.name ?? 'this team'}? This cannot be undone.`}
+        confirmLabel="Delete"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

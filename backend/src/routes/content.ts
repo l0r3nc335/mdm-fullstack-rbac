@@ -179,16 +179,27 @@ contentRouter.post('/', requirePermission('content:write'), async (req, res, nex
 
 contentRouter.get('/me', requireAnyPermission('content:read'), async (req, res, next) => {
   try {
-    const item = await prisma.contentItem.findFirst({
-      where: {
-        organizationId: req.organization!.id,
-        userId: req.user!.id,
-      },
+    const organizationId = req.organization!.id;
+    const userId = req.user!.id;
+
+    let item = await prisma.contentItem.findFirst({
+      where: { organizationId, userId },
       include: userInclude,
     });
 
     if (!item) {
-      throw notFound('Profile not found');
+      const actor = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true },
+      });
+      item = await prisma.contentItem.create({
+        data: {
+          organizationId,
+          userId,
+          title: `${actor?.firstName ?? 'User'} ${actor?.lastName ?? ''} Profile`.trim(),
+        },
+        include: userInclude,
+      });
     }
 
     await assertCanReadContent(req.user!, item);

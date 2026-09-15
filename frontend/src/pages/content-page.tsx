@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AvatarPicker } from '../components/avatar-picker';
+import { ConfirmModal } from '../components/confirm-modal';
+import {
+  emptyProfileForm,
+  ProfileForm,
+  profileToForm,
+} from '../components/profile-form';
 import { useAppSelector, useOrgUuid, usePermissions } from '../hooks/redux';
 import {
   createContent,
@@ -14,81 +19,20 @@ import {
 } from '../lib/services';
 import type { ContentItem, ProfileUpdatePayload } from '../types/api';
 
-const emptyForm: ProfileUpdatePayload = {
-  title: '',
-  phone: '',
-  dateOfBirth: '',
-  gender: '',
-  bio: '',
-  street: '',
-  city: '',
-  state: '',
-  postalCode: '',
-  country: '',
-  jobTitle: '',
-  department: '',
-  employeeNumber: '',
-  employmentType: '',
-  startDate: '',
-};
-
-function toForm(item: ContentItem): ProfileUpdatePayload {
-  return {
-    title: item.title ?? '',
-    phone: item.phone ?? '',
-    dateOfBirth: item.dateOfBirth ?? '',
-    gender: item.gender ?? '',
-    bio: item.bio ?? '',
-    street: item.street ?? '',
-    city: item.city ?? '',
-    state: item.state ?? '',
-    postalCode: item.postalCode ?? '',
-    country: item.country ?? '',
-    jobTitle: item.jobTitle ?? '',
-    department: item.department ?? '',
-    employeeNumber: item.employeeNumber ?? '',
-    employmentType: item.employmentType ?? '',
-    startDate: item.startDate ?? '',
-  };
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block text-sm">
-      <span className="mb-1 block font-medium text-slate-700">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-const inputClass =
-  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500';
-
 export function ContentPage() {
   const orgUuid = useOrgUuid();
   const user = useAppSelector((s) => s.auth.user);
   const queryClient = useQueryClient();
   const { hasPermission, hasRole } = usePermissions();
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [form, setForm] = useState<ProfileUpdatePayload>(emptyForm);
+  const [form, setForm] = useState<ProfileUpdatePayload>(emptyProfileForm);
   const [createUserId, setCreateUserId] = useState('');
   const [createTitle, setCreateTitle] = useState('');
   const [avatarObjectUrl, setAvatarObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-
-  const isEmployeeLike =
-    hasRole('employee') ||
-    hasRole('manager') ||
-    hasRole('subscriber') ||
-    hasRole('content_viewer') ||
-    (!hasRole('admin') && !hasRole('super_admin') && !hasRole('content_editor'));
+  const [search, setSearch] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(false);
 
   const contentQuery = useQuery({
     queryKey: ['content', orgUuid],
@@ -102,46 +46,62 @@ export function ContentPage() {
     enabled: Boolean(orgUuid) && hasPermission('content:write'),
   });
 
-  const ownProfile = useMemo(
-    () => contentQuery.data?.find((item) => item.userId === user?.id) ?? null,
-    [contentQuery.data, user?.id],
+  const items = contentQuery.data ?? [];
+  const selected = useMemo(
+    () => items.find((item) => item.id === selectedId) ?? null,
+    [items, selectedId],
   );
 
-  const activeProfile = useMemo(() => {
-    if (!contentQuery.data?.length) return null;
-    if (selectedId) {
-      return contentQuery.data.find((item) => item.id === selectedId) ?? null;
-    }
-    return ownProfile ?? contentQuery.data[0];
-  }, [contentQuery.data, selectedId, ownProfile]);
-
-  const canWriteActive =
+  const canWriteSelected =
     hasPermission('content:write') &&
     Boolean(
-      activeProfile &&
-        (activeProfile.userId === user?.id ||
+      selected &&
+        (selected.userId === user?.id ||
           hasRole('admin') ||
           hasRole('super_admin') ||
           hasRole('content_editor')),
     );
 
+  const canCreate = hasPermission('content:write') && (candidatesQuery.data?.length ?? 0) > 0;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) => {
+      const haystack = [
+        item.title,
+        item.jobTitle,
+        item.department,
+        item.phone,
+        item.employmentType,
+        item.user?.firstName,
+        item.user?.lastName,
+        item.user?.email,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, search]);
+
   useEffect(() => {
-    if (activeProfile) {
-      setForm(toForm(activeProfile));
+    if (selected) {
+      setForm(profileToForm(selected));
     }
-  }, [activeProfile]);
+  }, [selected]);
 
   useEffect(() => {
     let revoked = false;
     let objectUrl: string | null = null;
 
     async function loadAvatar() {
-      if (!orgUuid || !activeProfile?.hasAvatar) {
+      if (!orgUuid || !selected?.hasAvatar) {
         setAvatarObjectUrl(null);
         return;
       }
       try {
-        const blob = await fetchAvatarBlob(orgUuid, activeProfile.id);
+        const blob = await fetchAvatarBlob(orgUuid, selected.id);
         objectUrl = URL.createObjectURL(blob);
         if (!revoked) setAvatarObjectUrl(objectUrl);
       } catch {
@@ -150,19 +110,19 @@ export function ContentPage() {
     }
 
     void loadAvatar();
-
     return () => {
       revoked = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [orgUuid, activeProfile?.id, activeProfile?.hasAvatar, activeProfile?.avatarUrl]);
+  }, [orgUuid, selected?.id, selected?.hasAvatar, selected?.avatarUrl]);
 
   const saveMutation = useMutation({
-    mutationFn: () => updateContent(orgUuid!, activeProfile!.id, form),
+    mutationFn: () => updateContent(orgUuid!, selected!.id, form),
     onSuccess: () => {
       setMessage('Content saved');
       setError(null);
       queryClient.invalidateQueries({ queryKey: ['content', orgUuid] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me', orgUuid] });
     },
     onError: (err: Error) => {
       setError(err.message);
@@ -189,19 +149,20 @@ export function ContentPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteContent(orgUuid!, activeProfile!.id),
+    mutationFn: () => deleteContent(orgUuid!, selected!.id),
     onSuccess: () => {
       setSelectedId(null);
       setMessage('Content item deleted');
       queryClient.invalidateQueries({ queryKey: ['content', orgUuid] });
       queryClient.invalidateQueries({ queryKey: ['content-candidates', orgUuid] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me', orgUuid] });
     },
     onError: (err: Error) => setError(err.message),
   });
 
   const avatarMutation = useMutation({
     mutationFn: async (payload: { blob: Blob; fileName: string }) =>
-      uploadAvatar(orgUuid!, activeProfile!.id, payload.blob, payload.fileName),
+      uploadAvatar(orgUuid!, selected!.id, payload.blob, payload.fileName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['content', orgUuid] });
       setMessage('Avatar updated');
@@ -211,7 +172,7 @@ export function ContentPage() {
   });
 
   const removeAvatarMutation = useMutation({
-    mutationFn: () => deleteAvatar(orgUuid!, activeProfile!.id),
+    mutationFn: () => deleteAvatar(orgUuid!, selected!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['content', orgUuid] });
       setMessage('Avatar removed');
@@ -231,10 +192,6 @@ export function ContentPage() {
     return <p className="text-slate-500">Loading content…</p>;
   }
 
-  function setField<K extends keyof ProfileUpdatePayload>(key: K, value: ProfileUpdatePayload[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
   function onSave(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -242,39 +199,26 @@ export function ContentPage() {
     saveMutation.mutate();
   }
 
-  const showSelector = !isEmployeeLike || (contentQuery.data?.length ?? 0) > 1;
-  const canCreate = hasPermission('content:write') && (candidatesQuery.data?.length ?? 0) > 0;
+  function personName(item: ContentItem) {
+    if (item.user) return `${item.user.firstName} ${item.user.lastName}`;
+    return item.title;
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Content items</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">Content</h2>
           <p className="text-slate-500">
-            Personal profile content
-            {activeProfile?.user
-              ? ` for ${activeProfile.user.firstName} ${activeProfile.user.lastName}`
-              : ''}
-            . Content Viewer is read-only; Content Editor can create, edit, and delete.
+            Role-scoped directory of content records. Your own editable profile lives under Profile.
           </p>
         </div>
-
-        {showSelector && (contentQuery.data?.length ?? 0) > 1 && (
-          <select
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            value={activeProfile?.id ?? ''}
-            onChange={(e) => setSelectedId(Number(e.target.value))}
-          >
-            {contentQuery.data?.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.user
-                  ? `${item.user.firstName} ${item.user.lastName}`
-                  : item.title}
-                {item.userId === user?.id ? ' (you)' : ''}
-              </option>
-            ))}
-          </select>
-        )}
+        <input
+          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+          placeholder="Search name, job, department…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {canCreate && (
@@ -319,240 +263,118 @@ export function ContentPage() {
         </form>
       )}
 
-      {!activeProfile && (
-        <p className="text-slate-500">
-          No content items are available
-          {canCreate ? '. Create one above.' : '.'}
-        </p>
-      )}
-
-      {activeProfile && (
-        <form onSubmit={onSave} className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6">
-            <div className="flex flex-col gap-6 md:flex-row md:items-start">
-              <AvatarPicker
-                imageUrl={avatarObjectUrl}
-                canEdit={canWriteActive}
-                onUploadFile={async (file) => {
-                  await avatarMutation.mutateAsync({ blob: file, fileName: file.name });
-                }}
-                onUploadBlob={async (blob, fileName) => {
-                  await avatarMutation.mutateAsync({ blob, fileName });
-                }}
-                onRemove={
-                  activeProfile.hasAvatar
-                    ? async () => {
-                        await removeAvatarMutation.mutateAsync();
-                      }
-                    : undefined
-                }
-              />
-
-              <div className="grid flex-1 gap-3 md:grid-cols-2">
-                <Field label="Display title">
-                  <input
-                    className={inputClass}
-                    value={form.title ?? ''}
-                    disabled={!canWriteActive}
-                    onChange={(e) => setField('title', e.target.value)}
-                    required
-                  />
-                </Field>
-                <Field label="Phone">
-                  <input
-                    className={inputClass}
-                    value={form.phone ?? ''}
-                    disabled={!canWriteActive}
-                    onChange={(e) => setField('phone', e.target.value)}
-                  />
-                </Field>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Biodata
-            </h3>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <Field label="Date of birth">
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={form.dateOfBirth ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('dateOfBirth', e.target.value)}
-                />
-              </Field>
-              <Field label="Gender">
-                <select
-                  className={inputClass}
-                  value={form.gender ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('gender', e.target.value)}
-                >
-                  <option value="">Prefer not to say / unset</option>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                  <option value="non_binary">Non-binary</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
-                </select>
-              </Field>
-              <div className="md:col-span-2">
-                <Field label="Bio">
-                  <textarea
-                    className={`${inputClass} min-h-28`}
-                    value={form.bio ?? ''}
-                    disabled={!canWriteActive}
-                    onChange={(e) => setField('bio', e.target.value)}
-                  />
-                </Field>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Address
-            </h3>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <Field label="Street">
-                  <input
-                    className={inputClass}
-                    value={form.street ?? ''}
-                    disabled={!canWriteActive}
-                    onChange={(e) => setField('street', e.target.value)}
-                  />
-                </Field>
-              </div>
-              <Field label="City">
-                <input
-                  className={inputClass}
-                  value={form.city ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('city', e.target.value)}
-                />
-              </Field>
-              <Field label="State / Province">
-                <input
-                  className={inputClass}
-                  value={form.state ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('state', e.target.value)}
-                />
-              </Field>
-              <Field label="Postal code">
-                <input
-                  className={inputClass}
-                  value={form.postalCode ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('postalCode', e.target.value)}
-                />
-              </Field>
-              <Field label="Country">
-                <input
-                  className={inputClass}
-                  value={form.country ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('country', e.target.value)}
-                />
-              </Field>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Employment
-            </h3>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <Field label="Job title">
-                <input
-                  className={inputClass}
-                  value={form.jobTitle ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('jobTitle', e.target.value)}
-                />
-              </Field>
-              <Field label="Department">
-                <input
-                  className={inputClass}
-                  value={form.department ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('department', e.target.value)}
-                />
-              </Field>
-              <Field label="Employee number">
-                <input
-                  className={inputClass}
-                  value={form.employeeNumber ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('employeeNumber', e.target.value)}
-                />
-              </Field>
-              <Field label="Employment type">
-                <select
-                  className={inputClass}
-                  value={form.employmentType ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('employmentType', e.target.value)}
-                >
-                  <option value="">Unset</option>
-                  <option value="full_time">Full time</option>
-                  <option value="part_time">Part time</option>
-                  <option value="contract">Contract</option>
-                  <option value="intern">Intern</option>
-                </select>
-              </Field>
-              <Field label="Start date">
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={form.startDate ?? ''}
-                  disabled={!canWriteActive}
-                  onChange={(e) => setField('startDate', e.target.value)}
-                />
-              </Field>
-            </div>
-          </section>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {message && <p className="text-sm text-teal-700">{message}</p>}
-
-          <div className="flex flex-wrap gap-3">
-            {canWriteActive && (
-              <button
-                type="submit"
-                disabled={saveMutation.isPending}
-                className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-60"
-              >
-                {saveMutation.isPending ? 'Saving…' : 'Save content'}
-              </button>
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-100">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Person</th>
+              <th className="px-4 py-3 font-semibold">Title</th>
+              <th className="px-4 py-3 font-semibold">Job</th>
+              <th className="px-4 py-3 font-semibold">Department</th>
+              <th className="px-4 py-3 font-semibold">Phone</th>
+              <th className="px-4 py-3 font-semibold">Type</th>
+              <th className="px-4 py-3 font-semibold">Avatar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  No content records in your current scope.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((item) => {
+                const isActive = item.id === selectedId;
+                return (
+                  <tr
+                    key={item.id}
+                    className={`cursor-pointer border-b border-slate-100 transition hover:bg-teal-50/60 ${
+                      isActive ? 'bg-teal-50' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedId(item.id);
+                      setError(null);
+                      setMessage(null);
+                    }}
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      {personName(item)}
+                      {item.userId === user?.id ? (
+                        <span className="ml-2 text-xs font-normal text-teal-700">(you)</span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{item.title}</td>
+                    <td className="px-4 py-3 text-slate-600">{item.jobTitle ?? '—'}</td>
+                    <td className="px-4 py-3 text-slate-600">{item.department ?? '—'}</td>
+                    <td className="px-4 py-3 text-slate-600">{item.phone ?? '—'}</td>
+                    <td className="px-4 py-3 capitalize text-slate-600">
+                      {item.employmentType?.replace(/_/g, ' ') ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{item.hasAvatar ? 'Yes' : 'No'}</td>
+                  </tr>
+                );
+              })
             )}
-            {canWriteActive && (
-              <button
-                type="button"
-                className="rounded-lg border border-red-200 px-5 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                onClick={() => {
-                  if (window.confirm('Delete this content item?')) {
-                    deleteMutation.mutate();
-                  }
-                }}
-              >
-                Delete content
-              </button>
-            )}
-            {!canWriteActive && (
-              <p className="text-sm text-slate-500">
-                You have read-only access to this content item.
-              </p>
-            )}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-sm text-slate-500">
+        Showing {filtered.length} of {items.length} record{items.length === 1 ? '' : 's'}.
+        Click a row to view or edit details.
+      </p>
+
+      {selected && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Record detail · {personName(selected)}
+            </h3>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              onClick={() => setSelectedId(null)}
+            >
+              Close
+            </button>
           </div>
-        </form>
+          <ProfileForm
+            form={form}
+            canEdit={canWriteSelected}
+            avatarUrl={avatarObjectUrl}
+            hasAvatar={selected.hasAvatar}
+            isSaving={saveMutation.isPending}
+            error={error}
+            message={message}
+            submitLabel="Save content"
+            onChange={setForm}
+            onSubmit={onSave}
+            onUploadFile={async (file) => {
+              await avatarMutation.mutateAsync({ blob: file, fileName: file.name });
+            }}
+            onUploadBlob={async (blob, fileName) => {
+              await avatarMutation.mutateAsync({ blob, fileName });
+            }}
+            onRemoveAvatar={async () => {
+              await removeAvatarMutation.mutateAsync();
+            }}
+            onDelete={canWriteSelected ? () => setPendingDelete(true) : undefined}
+          />
+        </div>
       )}
 
-      {!activeProfile && error && <p className="text-sm text-red-600">{error}</p>}
-      {!activeProfile && message && <p className="text-sm text-teal-700">{message}</p>}
+      <ConfirmModal
+        open={pendingDelete}
+        title="Delete content"
+        message="Delete this content item? This cannot be undone."
+        confirmLabel="Delete"
+        onCancel={() => setPendingDelete(false)}
+        onConfirm={() => {
+          setPendingDelete(false);
+          deleteMutation.mutate();
+        }}
+      />
     </div>
   );
 }
