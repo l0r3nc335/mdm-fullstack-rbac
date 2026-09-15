@@ -26,10 +26,12 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=optional
 
-      - name: Ensure sharp linux binary
-        run: npm install --workspace backend --os=linux --cpu=x64 --libc=glibc sharp
+      - name: Ensure Linux native bindings
+        run: |
+          npm install --workspace backend sharp
+          npm install --workspace frontend oxlint @oxlint/binding-linux-x64-gnu@1.83.0
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -69,7 +71,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=optional
 
       - name: Cypress smoke
         run: npm run test:e2e

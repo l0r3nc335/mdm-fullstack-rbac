@@ -70,7 +70,7 @@ jobs:
           ssh -i ~/.ssh/ec2_key -p "${PORT}" "${REMOTE}" bash -s <<EOF
           set -euo pipefail
           cd "${DEST}"
-          npm ci
+          npm ci --include=optional
           npm install --os=linux --cpu=x64 --libc=glibc sharp
           npx prisma generate
           npx prisma migrate deploy
