@@ -201,3 +201,27 @@ Point nginx `root` at `/var/www/html2/frontend/dist` (SPA). Keep the API process
 4. Log in as Employee → can edit own profile content only
 5. Log in as Subscriber → subscription page works; cannot manage users
 6. Mobile: log in as employee → see that user's content list
+
+## Screenshots
+
+![Screenshot 2026-09-14 224900](./frontend/public/pages/Screenshot%202026-09-14%20224900.png)
+
+![Screenshot 2026-09-15 234329](./frontend/public/pages/Screenshot%202026-09-15%20234329.png)
+
+![Screenshot 2026-09-15 234455](./frontend/public/pages/Screenshot%202026-09-15%20234455.png)
+
+![Screenshot 2026-09-15 234509](./frontend/public/pages/Screenshot%202026-09-15%20234509.png)
+
+![Screenshot 2026-09-15 234635](./frontend/public/pages/Screenshot%202026-09-15%20234635.png)
+
+![Screenshot 2026-09-15 234801](./frontend/public/pages/Screenshot%202026-09-15%20234801.png)
+
+![Screenshot 2026-09-15 234827](./frontend/public/pages/Screenshot%202026-09-15%20234827.png)
+
+![Screenshot 2026-09-15 234902](./frontend/public/pages/Screenshot%202026-09-15%20234902.png)
+
+![Screenshot 2026-09-15 235337](./frontend/public/pages/Screenshot%202026-09-15%20235337.png)
+
+![Screenshot 2026-09-15 235452](./frontend/public/pages/Screenshot%202026-09-15%20235452.png)
+
+![Screenshot 2026-09-15 235522](./frontend/public/pages/Screenshot%202026-09-15%20235522.png)
