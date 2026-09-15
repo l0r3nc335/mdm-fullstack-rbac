@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build & Deploy to Vercel
+    name: Build & Deploy Frontend to EC2
     runs-on: ubuntu-latest
 
     steps:
@@ -30,19 +30,57 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install Linux-native dependencies
+        run: bash scripts/ensure-linux-natives.sh
 
       - name: Build frontend
         run: npm run build --workspace frontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: frontend
-          vercel-args: "--prod"
+      - name: Configure SSH
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      # Root secret = /var/www/html2 → files land in /var/www/html2/frontend/
+      - name: Rsync frontend/ to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          EC2_DEPLOY_PATH: ${{ secrets.EC2_DEPLOY_PATH }}
+          BE_EC2_DEPLOY_PATH: ${{ secrets.BE_EC2_DEPLOY_PATH }}
+        run: |
+          PORT="${EC2_PORT:-22}"
+          REMOTE="${EC2_USER}@${EC2_HOST}"
+          ROOT="${EC2_DEPLOY_PATH:-$BE_EC2_DEPLOY_PATH}"
+          DEST="${ROOT%/}/frontend"
+
+          ssh -i ~/.ssh/ec2_key -p "${PORT}" "${REMOTE}" "mkdir -p '${DEST}'"
+
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/ec2_key -p ${PORT} -o StrictHostKeyChecking=yes" \
+            --exclude 'node_modules' \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            frontend/ \
+            "${REMOTE}:${DEST}/"
+
+      - name: Post-deploy reload
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+          EC2_RELOAD_CMD: ${{ secrets.EC2_RELOAD_CMD }}
+          FE_EC2_RELOAD_CMD: ${{ secrets.FE_EC2_RELOAD_CMD }}
+        run: |
+          PORT="${EC2_PORT:-22}"
+          REMOTE="${EC2_USER}@${EC2_HOST}"
+          CMD="${FE_EC2_RELOAD_CMD:-${EC2_RELOAD_CMD:-echo 'frontend deploy complete'}}"
+          ssh -i ~/.ssh/ec2_key -p "${PORT}" "${REMOTE}" "${CMD}"

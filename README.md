@@ -163,13 +163,35 @@ npm run test:all          # lint + unit + build + e2e (also used by Husky pre-pu
 |-------|-----------|
 | Husky `pre-push` | `npm run test:all` — blocks push to any branch if tests fail |
 | GitHub `Test` workflow | Vitest + lint + build on every push/PR; Cypress smoke after unit job |
-| `Deploy Backend` | EC2 rsync + `prisma migrate deploy` on `main`/`master` (backend paths) |
-| `Deploy Frontend` | Vercel production deploy on `main`/`master` (frontend paths) |
+| `Deploy Backend` | EC2 rsync → `$EC2_DEPLOY_PATH/backend` + migrate on `main`/`master` |
+| `Deploy Frontend` | EC2 rsync → `$EC2_DEPLOY_PATH/frontend` (built Vite app) on `main`/`master` |
 
 Required GitHub secrets for deploy:
 
-- Backend EC2: `EC2_SSH_KEY`, `EC2_HOST`, `EC2_USER`, `EC2_PORT`, `BE_EC2_DEPLOY_PATH`, `BE_EC2_RELOAD_CMD`
-- Frontend Vercel: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VITE_API_URL`
+Shared EC2:
+- `EC2_SSH_KEY`, `EC2_HOST`, `EC2_USER`, `EC2_PORT`
+- `EC2_DEPLOY_PATH` — app root on the server, e.g. `/var/www/html2`  
+  (creates `/var/www/html2/backend` and `/var/www/html2/frontend`)  
+  Fallback: `BE_EC2_DEPLOY_PATH` if `EC2_DEPLOY_PATH` is unset
+
+Backend:
+- `BE_EC2_RELOAD_CMD` — e.g. `pm2 restart rbac-api`
+
+Frontend:
+- `VITE_API_URL` — API URL baked into the Vite build (e.g. `http://YOUR_EC2_IP:4000/api`)
+- `EC2_RELOAD_CMD` or `FE_EC2_RELOAD_CMD` — e.g. `sudo systemctl reload nginx`
+
+Remove unused Vercel secrets if present: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+
+On the server after first deploy you should see:
+
+```text
+/var/www/html2/
+  backend/    # Express + Prisma (from repo backend/)
+  frontend/   # Vite app including dist/ (from repo frontend/)
+```
+
+Point nginx `root` at `/var/www/html2/frontend/dist` (SPA). Keep the API process running from `/var/www/html2/backend`. If you previously dumped backend files directly into `/var/www/html2`, move/clean that root so only the `backend` and `frontend` folders remain.
 
 ## Smoke checks
 

@@ -33,16 +33,21 @@ jobs:
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
-      - name: Rsync backend to EC2
+      # Root secret = /var/www/html2 → files land in /var/www/html2/backend/
+      - name: Rsync backend/ to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_PORT: ${{ secrets.EC2_PORT }}
+          EC2_DEPLOY_PATH: ${{ secrets.EC2_DEPLOY_PATH }}
           BE_EC2_DEPLOY_PATH: ${{ secrets.BE_EC2_DEPLOY_PATH }}
         run: |
           PORT="${EC2_PORT:-22}"
           REMOTE="${EC2_USER}@${EC2_HOST}"
-          DEST="${BE_EC2_DEPLOY_PATH}"
+          ROOT="${EC2_DEPLOY_PATH:-$BE_EC2_DEPLOY_PATH}"
+          DEST="${ROOT%/}/backend"
+
+          ssh -i ~/.ssh/ec2_key -p "${PORT}" "${REMOTE}" "mkdir -p '${DEST}'"
 
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/ec2_key -p ${PORT} -o StrictHostKeyChecking=yes" \
@@ -59,13 +64,15 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_PORT: ${{ secrets.EC2_PORT }}
+          EC2_DEPLOY_PATH: ${{ secrets.EC2_DEPLOY_PATH }}
           BE_EC2_DEPLOY_PATH: ${{ secrets.BE_EC2_DEPLOY_PATH }}
           BE_EC2_RELOAD_CMD: ${{ secrets.BE_EC2_RELOAD_CMD }}
         run: |
           PORT="${EC2_PORT:-22}"
           REMOTE="${EC2_USER}@${EC2_HOST}"
-          DEST="${BE_EC2_DEPLOY_PATH}"
-          RELOAD="${BE_EC2_RELOAD_CMD:-echo 'deploy complete'}"
+          ROOT="${EC2_DEPLOY_PATH:-$BE_EC2_DEPLOY_PATH}"
+          DEST="${ROOT%/}/backend"
+          RELOAD="${BE_EC2_RELOAD_CMD:-echo 'backend deploy complete'}"
 
           ssh -i ~/.ssh/ec2_key -p "${PORT}" "${REMOTE}" bash -s <<EOF
           set -euo pipefail
