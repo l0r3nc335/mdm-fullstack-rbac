@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
+import { ConfirmModal } from '../components/confirm-modal';
 import {
   createRole,
   deleteRole,
@@ -16,6 +17,7 @@ export function RolesPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<number[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [createForm, setCreateForm] = useState({
     code: '',
     name: '',
@@ -195,11 +197,7 @@ export function RolesPage() {
                         <button
                           type="button"
                           className="text-red-600 hover:underline"
-                          onClick={() => {
-                            if (window.confirm(`Delete role ${role.name}?`)) {
-                              deleteMutation.mutate(role.id);
-                            }
-                          }}
+                          onClick={() => setDeleteTarget({ id: role.id, name: role.name })}
                         >
                           Delete
                         </button>
@@ -262,6 +260,19 @@ export function RolesPage() {
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete role"
+        message={`Delete role ${deleteTarget?.name ?? ''}? This cannot be undone.`}
+        confirmLabel="Delete"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { TeamsPage } from './pages/teams-page';
 import { UsersPage } from './pages/users-page';
 import { RolesPage } from './pages/roles-page';
 import { ContentPage } from './pages/content-page';
+import { ProfilePage } from './pages/profile-page';
 import { SubscriptionPage } from './pages/subscription-page';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="users" element={<UsersPage />} />
             <Route path="roles" element={<RolesPage />} />
             <Route path="content" element={<ContentPage />} />
+            <Route path="profile" element={<ProfilePage />} />
             <Route path="subscription" element={<SubscriptionPage />} />
           </Route>
         </Route>

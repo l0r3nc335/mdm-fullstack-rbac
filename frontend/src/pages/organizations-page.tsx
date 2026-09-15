@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ConfirmModal, PromptModal } from '../components/confirm-modal';
 import {
   createOrganization,
   deleteOrganization,
@@ -16,6 +17,8 @@ export function OrganizationsPage() {
   const { hasPermission, hasRole } = usePermissions();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{ uuid: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ uuid: string; name: string } | null>(null);
 
   const canCreate = hasRole('super_admin') && hasPermission('org:manage');
   const canDelete = canCreate;
@@ -125,12 +128,7 @@ export function OrganizationsPage() {
                       <button
                         type="button"
                         className="rounded-md border border-slate-200 px-2.5 py-1 text-xs"
-                        onClick={() => {
-                          const nextName = window.prompt('Rename organization', org.name);
-                          if (nextName) {
-                            renameMutation.mutate({ uuid: org.uuid, nextName });
-                          }
-                        }}
+                        onClick={() => setRenameTarget({ uuid: org.uuid, name: org.name })}
                       >
                         Rename
                       </button>
@@ -139,15 +137,7 @@ export function OrganizationsPage() {
                       <button
                         type="button"
                         className="rounded-md border border-red-200 px-2.5 py-1 text-xs text-red-600"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Delete ${org.name} and all of its users, teams, and content?`,
-                            )
-                          ) {
-                            deleteMutation.mutate(org.uuid);
-                          }
-                        }}
+                        onClick={() => setDeleteTarget({ uuid: org.uuid, name: org.name })}
                       >
                         Delete
                       </button>
@@ -159,6 +149,33 @@ export function OrganizationsPage() {
           </tbody>
         </table>
       </div>
+
+      <PromptModal
+        open={Boolean(renameTarget)}
+        title="Rename organization"
+        label="Organization name"
+        initialValue={renameTarget?.name ?? ''}
+        confirmLabel="Rename"
+        onCancel={() => setRenameTarget(null)}
+        onConfirm={(nextName) => {
+          if (!renameTarget) return;
+          renameMutation.mutate({ uuid: renameTarget.uuid, nextName });
+          setRenameTarget(null);
+        }}
+      />
+
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete organization"
+        message={`Delete ${deleteTarget?.name ?? 'this organization'} and all of its users, teams, and content? This cannot be undone.`}
+        confirmLabel="Delete"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.uuid);
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }
