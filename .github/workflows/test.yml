@@ -26,21 +26,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # npm ci from a Windows-generated lockfile often skips Linux napi optionals
-      # (oxlint, rolldown/vite, sharp). Prefer install so the runner OS resolves them.
-      - name: Install dependencies
-        run: npm install --include=optional --no-fund --no-audit
-
-      - name: Ensure Linux native bindings
-        run: |
-          npm install --workspace backend \
-            @img/sharp-linux-x64@0.35.4 \
-            @img/sharp-libvips-linux-x64@1.3.3 \
-            sharp
-          npm install --workspace frontend \
-            @oxlint/binding-linux-x64-gnu@1.83.0 \
-            @rolldown/binding-linux-x64-gnu@1.2.8 \
-            oxlint
+      - name: Install Linux-native dependencies
+        run: bash scripts/ensure-linux-natives.sh
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -79,14 +66,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        run: npm install --include=optional --no-fund --no-audit
-
-      - name: Ensure Linux frontend bindings
-        run: |
-          npm install --workspace frontend \
-            @oxlint/binding-linux-x64-gnu@1.83.0 \
-            @rolldown/binding-linux-x64-gnu@1.2.8
+      - name: Install Linux-native dependencies
+        run: bash scripts/ensure-linux-natives.sh
 
       - name: Cypress smoke
         run: npm run test:e2e
