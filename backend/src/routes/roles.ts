@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/require-permission.js';
 import { resolveTenant } from '../middleware/tenant.js';
-import { notFound } from '../utils/errors.js';
+import { forbidden, notFound } from '../utils/errors.js';
 
 const createRoleSchema = z.object({
   code: z.string().min(2).max(60).regex(/^[a-z0-9_]+$/),
@@ -139,6 +139,30 @@ rolesRouter.patch('/:id', requirePermission('role:manage'), async (req, res, nex
         permissions: role.rolePermissions.map((rp) => rp.permission),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+rolesRouter.delete('/:id', requirePermission('role:manage'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const existing = await prisma.role.findFirst({
+      where: { id, organizationId: req.organization!.id },
+      include: { _count: { select: { userRoles: true } } },
+    });
+    if (!existing) {
+      throw notFound('Role not found');
+    }
+    if (existing.isSystem) {
+      throw forbidden('System roles cannot be deleted');
+    }
+    if (existing._count.userRoles > 0) {
+      throw forbidden('Reassign users before deleting this role');
+    }
+
+    await prisma.role.delete({ where: { id } });
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

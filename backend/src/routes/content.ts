@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { requirePermission, requireAnyPermission } from '../middleware/require-permission.js';
@@ -31,6 +32,11 @@ const upload = multer({
     }
     cb(null, true);
   },
+});
+
+const createContentSchema = profileUpdateSchema.extend({
+  userId: z.number().int().positive(),
+  title: z.string().trim().min(1).max(200),
 });
 
 const userInclude = {
@@ -76,6 +82,95 @@ contentRouter.get('/', requireAnyPermission('content:read'), async (req, res, ne
 
     res.json({
       data: items.map((item) => serializeContentItem(item, req.organization!.uuid)),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+contentRouter.get('/candidates', requirePermission('content:write'), async (req, res, next) => {
+  try {
+    const orgId = req.organization!.id;
+    const existing = await prisma.contentItem.findMany({
+      where: { organizationId: orgId },
+      select: { userId: true },
+    });
+    const taken = new Set(existing.map((item) => item.userId));
+
+    const users = await prisma.user.findMany({
+      where: { organizationId: orgId, isActive: true },
+      select: { id: true, email: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    const candidates = [];
+    for (const candidate of users) {
+      if (taken.has(candidate.id)) continue;
+      try {
+        await assertCanWriteContent(req.user!, {
+          userId: candidate.id,
+          organizationId: orgId,
+        });
+        candidates.push(candidate);
+      } catch {
+        // skip users the actor cannot write content for
+      }
+    }
+
+    res.json({ data: candidates });
+  } catch (error) {
+    next(error);
+  }
+});
+
+contentRouter.post('/', requirePermission('content:write'), async (req, res, next) => {
+  try {
+    const body = createContentSchema.parse(req.body);
+
+    const targetUser = await prisma.user.findFirst({
+      where: { id: body.userId, organizationId: req.organization!.id },
+    });
+    if (!targetUser) {
+      throw notFound('User not found in this organization');
+    }
+
+    await assertCanWriteContent(req.user!, {
+      userId: body.userId,
+      organizationId: req.organization!.id,
+    });
+
+    const existing = await prisma.contentItem.findFirst({
+      where: { organizationId: req.organization!.id, userId: body.userId },
+    });
+    if (existing) {
+      throw new AppError('Content item already exists for this user', 409, 'CONTENT_EXISTS');
+    }
+
+    const item = await prisma.contentItem.create({
+      data: {
+        organizationId: req.organization!.id,
+        userId: body.userId,
+        title: body.title,
+        phone: body.phone,
+        dateOfBirth: body.dateOfBirth,
+        gender: body.gender,
+        bio: body.bio,
+        street: body.street,
+        city: body.city,
+        state: body.state,
+        postalCode: body.postalCode,
+        country: body.country,
+        jobTitle: body.jobTitle,
+        department: body.department,
+        employeeNumber: body.employeeNumber,
+        employmentType: body.employmentType,
+        startDate: body.startDate,
+      },
+      include: userInclude,
+    });
+
+    res.status(201).json({
+      data: serializeContentItem(item, req.organization!.uuid),
     });
   } catch (error) {
     next(error);
@@ -158,6 +253,26 @@ contentRouter.patch('/:id', requirePermission('content:write'), async (req, res,
     });
 
     res.json({ data: serializeContentItem(item, req.organization!.uuid) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+contentRouter.delete('/:id', requirePermission('content:write'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const existing = await prisma.contentItem.findFirst({
+      where: { id, organizationId: req.organization!.id },
+    });
+    if (!existing) {
+      throw notFound('Content not found');
+    }
+
+    await assertCanWriteContent(req.user!, existing);
+    await deleteAvatarFile(existing.avatarKey);
+    await prisma.contentItem.delete({ where: { id } });
+
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

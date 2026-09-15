@@ -158,12 +158,8 @@ organizationsRouter.get('/:orgUuid', async (req, res, next) => {
   }
 });
 
-organizationsRouter.patch('/:orgUuid', requirePermission('org:manage'), async (req, res, next) => {
+organizationsRouter.patch('/:orgUuid', async (req, res, next) => {
   try {
-    if (!isSuperAdmin(req)) {
-      throw forbidden('Only super admin can update organizations');
-    }
-
     const body = updateOrgSchema.parse(req.body);
     const orgUuid = typeof req.params.orgUuid === 'string' ? req.params.orgUuid : undefined;
     if (!orgUuid) {
@@ -176,13 +172,60 @@ organizationsRouter.patch('/:orgUuid', requirePermission('org:manage'), async (r
       throw notFound('Organization not found');
     }
 
+    const canManageAll = isSuperAdmin(req) && req.user!.permissions.includes('org:manage');
+    const canManageOwn =
+      req.user!.roles.includes('admin') &&
+      req.user!.organizationId === existing.id &&
+      req.user!.permissions.includes('user:manage');
+
+    if (!canManageAll && !canManageOwn) {
+      throw forbidden('You cannot update this organization');
+    }
+
     const organization = await prisma.organization.update({
       where: { id: existing.id },
       data: { name: body.name },
-      include: { subscription: true },
+      include: {
+        _count: { select: { users: true, teams: true } },
+        subscription: true,
+      },
     });
 
     res.json({ data: organization });
+  } catch (error) {
+    next(error);
+  }
+});
+
+organizationsRouter.delete('/:orgUuid', requirePermission('org:manage'), async (req, res, next) => {
+  try {
+    if (!isSuperAdmin(req)) {
+      throw forbidden('Only super admin can delete organizations');
+    }
+
+    const orgUuid = typeof req.params.orgUuid === 'string' ? req.params.orgUuid : undefined;
+    if (!orgUuid) {
+      throw notFound('Organization UUID required');
+    }
+
+    const existing = await prisma.organization.findUnique({
+      where: { uuid: orgUuid },
+    });
+    if (!existing) {
+      throw notFound('Organization not found');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.updateMany({
+        where: { organizationId: existing.id },
+        data: { teamId: null, managerId: null },
+      });
+      await tx.team.deleteMany({ where: { organizationId: existing.id } });
+      await tx.user.deleteMany({ where: { organizationId: existing.id } });
+      await tx.organization.delete({ where: { id: existing.id } });
+    });
+
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

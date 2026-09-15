@@ -49,8 +49,15 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl shadow-slate-200/60 backdrop-blur">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: 'url(/bg-login.png)' }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-slate-950/45" aria-hidden />
+
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/20 bg-white/90 p-8 shadow-xl shadow-slate-950/30 backdrop-blur-md">
         <p className="text-xs uppercase tracking-[0.25em] text-teal-700">Multi-tenant RBAC</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">Sign in</h1>
         <p className="mt-2 text-sm text-slate-500">

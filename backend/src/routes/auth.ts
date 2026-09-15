@@ -152,21 +152,22 @@ authRouter.get('/me', authenticate, async (req, res, next) => {
 
 authRouter.get('/demo-accounts', async (_req, res, next) => {
   try {
-    const emails = [
+    const demoOrder = [
       'superadmin@demo.local',
       'admin@acmecorp.demo.local',
       'subscriber@acmecorp.demo.local',
       'manager1@acmecorp.demo.local',
       'employee1.1@acmecorp.demo.local',
+      'viewer@acmecorp.demo.local',
+      'editor@acmecorp.demo.local',
     ];
 
     const users = await prisma.user.findMany({
-      where: { email: { in: emails } },
+      where: { email: { in: demoOrder } },
       include: {
         organization: true,
         userRoles: { include: { role: true } },
       },
-      orderBy: { id: 'asc' },
     });
 
     const labelByEmail: Record<string, string> = {
@@ -175,15 +176,22 @@ authRouter.get('/demo-accounts', async (_req, res, next) => {
       'subscriber@acmecorp.demo.local': 'Subscriber',
       'manager1@acmecorp.demo.local': 'Manager',
       'employee1.1@acmecorp.demo.local': 'Employee',
+      'viewer@acmecorp.demo.local': 'Content Viewer (read-only)',
+      'editor@acmecorp.demo.local': 'Content Editor (full access)',
     };
 
+    const byEmail = new Map(users.map((u) => [u.email, u]));
+
     res.json({
-      data: users.map((u) => ({
-        label: labelByEmail[u.email] ?? u.email,
-        email: u.email,
-        role: u.userRoles[0]?.role.code ?? 'unknown',
-        organizationName: u.organization?.name ?? null,
-      })),
+      data: demoOrder
+        .map((email) => byEmail.get(email))
+        .filter((u): u is NonNullable<typeof u> => Boolean(u))
+        .map((u) => ({
+          label: labelByEmail[u.email] ?? u.email,
+          email: u.email,
+          role: u.userRoles[0]?.role.code ?? 'unknown',
+          organizationName: u.organization?.name ?? null,
+        })),
     });
   } catch (error) {
     next(error);

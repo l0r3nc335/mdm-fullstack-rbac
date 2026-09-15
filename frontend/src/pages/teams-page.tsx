@@ -1,6 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createTeam, deleteTeam, fetchTeams, fetchUsers } from '../lib/services';
+import {
+  createTeam,
+  deleteTeam,
+  fetchTeams,
+  fetchUsers,
+  updateTeam,
+} from '../lib/services';
 import { useOrgUuid, usePermissions } from '../hooks/redux';
 
 export function TeamsPage() {
@@ -9,6 +15,9 @@ export function TeamsPage() {
   const { hasPermission } = usePermissions();
   const [name, setName] = useState('');
   const [managerUserId, setManagerUserId] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editManagerUserId, setEditManagerUserId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const teamsQuery = useQuery({
@@ -20,7 +29,7 @@ export function TeamsPage() {
   const usersQuery = useQuery({
     queryKey: ['users', orgUuid],
     queryFn: () => fetchUsers(orgUuid!),
-    enabled: Boolean(orgUuid) && hasPermission('team:manage'),
+    enabled: Boolean(orgUuid) && hasPermission('team:manage') && hasPermission('user:manage'),
   });
 
   const createMutation = useMutation({
@@ -32,6 +41,19 @@ export function TeamsPage() {
     onSuccess: () => {
       setName('');
       setManagerUserId('');
+      queryClient.invalidateQueries({ queryKey: ['teams', orgUuid] });
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateTeam(orgUuid!, editingId!, {
+        name: editName,
+        managerUserId: Number(editManagerUserId),
+      }),
+    onSuccess: () => {
+      setEditingId(null);
       queryClient.invalidateQueries({ queryKey: ['teams', orgUuid] });
     },
     onError: (err: Error) => setError(err.message),
@@ -57,7 +79,7 @@ export function TeamsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">Teams</h2>
-        <p className="text-slate-500">Each team is led by a manager with 20 seeded employees.</p>
+        <p className="text-slate-500">Create, update, and delete teams and their managers.</p>
       </div>
 
       {hasPermission('team:manage') && (
@@ -103,26 +125,85 @@ export function TeamsPage() {
           <tbody>
             {teamsQuery.data?.map((team) => (
               <tr key={team.id} className="border-t border-slate-100">
-                <td className="px-4 py-3 font-medium">{team.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  {editingId === team.id ? (
+                    <input
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                    />
+                  ) : (
+                    team.name
+                  )}
+                </td>
                 <td className="px-4 py-3">
-                  {team.manager
-                    ? `${team.manager.firstName} ${team.manager.lastName}`
-                    : team.managerUserId}
+                  {editingId === team.id ? (
+                    <select
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1"
+                      value={editManagerUserId}
+                      onChange={(e) => setEditManagerUserId(e.target.value)}
+                    >
+                      {usersQuery.data?.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  ) : team.manager ? (
+                    `${team.manager.firstName} ${team.manager.lastName}`
+                  ) : (
+                    team.managerUserId
+                  )}
                 </td>
                 <td className="px-4 py-3">{team._count?.members ?? '—'}</td>
                 <td className="px-4 py-3">
                   {hasPermission('team:manage') && (
-                    <button
-                      type="button"
-                      className="text-red-600 hover:underline"
-                      onClick={() => {
-                        if (window.confirm(`Delete ${team.name}?`)) {
-                          deleteMutation.mutate(team.id);
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
+                    <div className="flex flex-wrap gap-3">
+                      {editingId === team.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="text-teal-700 hover:underline"
+                            onClick={() => {
+                              setError(null);
+                              updateMutation.mutate();
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="text-slate-500 hover:underline"
+                            onClick={() => setEditingId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-teal-700 hover:underline"
+                          onClick={() => {
+                            setEditingId(team.id);
+                            setEditName(team.name);
+                            setEditManagerUserId(String(team.managerUserId));
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="text-red-600 hover:underline"
+                        onClick={() => {
+                          if (window.confirm(`Delete ${team.name}?`)) {
+                            deleteMutation.mutate(team.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>

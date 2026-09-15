@@ -11,6 +11,7 @@ import { usersRouter } from './routes/users.js';
 import { rolesRouter } from './routes/roles.js';
 import { contentRouter } from './routes/content.js';
 import { subscriptionRouter } from './routes/subscription.js';
+import { orgStatsRouter, platformStatsRouter } from './routes/stats.js';
 
 export function createApp() {
   const app = express();
@@ -28,7 +29,9 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter);
+  app.use('/api/stats/platform', platformStatsRouter);
   app.use('/api/organizations', organizationsRouter);
+  app.use('/api/organizations/:orgUuid/stats', orgStatsRouter);
   app.use('/api/organizations/:orgUuid/teams', teamsRouter);
   app.use('/api/organizations/:orgUuid/users', usersRouter);
   app.use('/api/organizations/:orgUuid/roles', rolesRouter);
