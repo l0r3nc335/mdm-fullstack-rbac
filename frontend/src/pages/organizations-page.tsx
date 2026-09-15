@@ -1,16 +1,26 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createOrganization, fetchOrganizations, updateOrganization } from '../lib/services';
-import { usePermissions } from '../hooks/redux';
+import {
+  createOrganization,
+  deleteOrganization,
+  fetchOrganizations,
+  updateOrganization,
+} from '../lib/services';
+import { useAppDispatch, useAppSelector, usePermissions } from '../hooks/redux';
 import { setActiveOrganization } from '../store/auth-slice';
-import { useAppDispatch } from '../hooks/redux';
 
 export function OrganizationsPage() {
   const queryClient = useQueryClient();
   const dispatch = useAppDispatch();
-  const { hasPermission } = usePermissions();
+  const user = useAppSelector((s) => s.auth.user);
+  const { hasPermission, hasRole } = usePermissions();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const canCreate = hasRole('super_admin') && hasPermission('org:manage');
+  const canDelete = canCreate;
+  const canRenameOrg = (orgId: number) =>
+    canCreate || (hasRole('admin') && user?.organizationId === orgId);
 
   const orgsQuery = useQuery({
     queryKey: ['organizations'],
@@ -33,6 +43,12 @@ export function OrganizationsPage() {
     onError: (err: Error) => setError(err.message),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (uuid: string) => deleteOrganization(uuid),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['organizations'] }),
+    onError: (err: Error) => setError(err.message),
+  });
+
   function onCreate(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -43,10 +59,12 @@ export function OrganizationsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">Organizations</h2>
-        <p className="text-slate-500">Super admin manages tenants across the platform.</p>
+        <p className="text-slate-500">
+          Super admin creates and deletes tenants. Org admins can rename their own organization.
+        </p>
       </div>
 
-      {hasPermission('org:manage') && (
+      {canCreate && (
         <form onSubmit={onCreate} className="flex flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4">
           <input
             className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2"
@@ -86,22 +104,24 @@ export function OrganizationsPage() {
                 <td className="px-4 py-3">{org._count?.teams ?? '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded-md bg-slate-900 px-2.5 py-1 text-xs text-white"
-                      onClick={() =>
-                        dispatch(
-                          setActiveOrganization({
-                            id: org.id,
-                            uuid: org.uuid,
-                            name: org.name,
-                          }),
-                        )
-                      }
-                    >
-                      Work in org
-                    </button>
-                    {hasPermission('org:manage') && (
+                    {(hasRole('super_admin') || user?.organizationId === org.id) && (
+                      <button
+                        type="button"
+                        className="rounded-md bg-slate-900 px-2.5 py-1 text-xs text-white"
+                        onClick={() =>
+                          dispatch(
+                            setActiveOrganization({
+                              id: org.id,
+                              uuid: org.uuid,
+                              name: org.name,
+                            }),
+                          )
+                        }
+                      >
+                        Work in org
+                      </button>
+                    )}
+                    {canRenameOrg(org.id) && (
                       <button
                         type="button"
                         className="rounded-md border border-slate-200 px-2.5 py-1 text-xs"
@@ -113,6 +133,23 @@ export function OrganizationsPage() {
                         }}
                       >
                         Rename
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        className="rounded-md border border-red-200 px-2.5 py-1 text-xs text-red-600"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Delete ${org.name} and all of its users, teams, and content?`,
+                            )
+                          ) {
+                            deleteMutation.mutate(org.uuid);
+                          }
+                        }}
+                      >
+                        Delete
                       </button>
                     )}
                   </div>

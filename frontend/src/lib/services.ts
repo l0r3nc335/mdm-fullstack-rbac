@@ -42,6 +42,10 @@ export async function updateOrganization(orgUuid: string, name: string) {
   return data.data;
 }
 
+export async function deleteOrganization(orgUuid: string) {
+  await api.delete(`/organizations/${orgUuid}`);
+}
+
 export async function fetchTeams(orgUuid: string) {
   const { data } = await api.get<Data<Team[]>>(`/organizations/${orgUuid}/teams`);
   return data.data;
@@ -52,6 +56,15 @@ export async function createTeam(
   payload: { name: string; managerUserId: number },
 ) {
   const { data } = await api.post<Data<Team>>(`/organizations/${orgUuid}/teams`, payload);
+  return data.data;
+}
+
+export async function updateTeam(
+  orgUuid: string,
+  id: number,
+  payload: { name?: string; managerUserId?: number },
+) {
+  const { data } = await api.patch<Data<Team>>(`/organizations/${orgUuid}/teams/${id}`, payload);
   return data.data;
 }
 
@@ -80,6 +93,24 @@ export async function createUser(
   return data.data;
 }
 
+export async function updateUser(
+  orgUuid: string,
+  id: number,
+  payload: {
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    teamId?: number | null;
+    managerId?: number | null;
+    roleIds?: number[];
+    password?: string;
+    isActive?: boolean;
+  },
+) {
+  const { data } = await api.patch<Data<AppUser>>(`/organizations/${orgUuid}/users/${id}`, payload);
+  return data.data;
+}
+
 export async function deleteUser(orgUuid: string, id: number) {
   await api.delete(`/organizations/${orgUuid}/users/${id}`);
 }
@@ -94,6 +125,19 @@ export async function fetchPermissions(orgUuid: string) {
   return data.data;
 }
 
+export async function createRole(
+  orgUuid: string,
+  payload: {
+    code: string;
+    name: string;
+    description?: string;
+    permissionIds: number[];
+  },
+) {
+  const { data } = await api.post<Data<Role>>(`/organizations/${orgUuid}/roles`, payload);
+  return data.data;
+}
+
 export async function updateRolePermissions(
   orgUuid: string,
   roleId: number,
@@ -103,6 +147,10 @@ export async function updateRolePermissions(
     permissionIds,
   });
   return data.data;
+}
+
+export async function deleteRole(orgUuid: string, id: number) {
+  await api.delete(`/organizations/${orgUuid}/roles/${id}`);
 }
 
 export async function fetchContent(orgUuid: string, userId?: number) {
@@ -117,6 +165,24 @@ export async function fetchMyContent(orgUuid: string) {
   return data.data;
 }
 
+export async function fetchContentCandidates(orgUuid: string) {
+  const { data } = await api.get<
+    Data<Array<{ id: number; email: string; firstName: string; lastName: string }>>
+  >(`/organizations/${orgUuid}/content/candidates`);
+  return data.data;
+}
+
+export async function createContent(
+  orgUuid: string,
+  payload: ProfileUpdatePayload & { userId: number; title: string },
+) {
+  const { data } = await api.post<Data<ContentItem>>(
+    `/organizations/${orgUuid}/content`,
+    payload,
+  );
+  return data.data;
+}
+
 export async function updateContent(
   orgUuid: string,
   id: number,
@@ -127,6 +193,10 @@ export async function updateContent(
     payload,
   );
   return data.data;
+}
+
+export async function deleteContent(orgUuid: string, id: number) {
+  await api.delete(`/organizations/${orgUuid}/content/${id}`);
 }
 
 export async function uploadAvatar(orgUuid: string, id: number, file: Blob, fileName = 'avatar.jpg') {

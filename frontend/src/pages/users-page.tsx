@@ -1,20 +1,39 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createUser, deleteUser, fetchRoles, fetchTeams, fetchUsers } from '../lib/services';
+import {
+  createUser,
+  deleteUser,
+  fetchRoles,
+  fetchTeams,
+  fetchUsers,
+  updateUser,
+} from '../lib/services';
 import { useOrgUuid, usePermissions } from '../hooks/redux';
+import type { AppUser } from '../types/api';
+
+const emptyForm = {
+  email: '',
+  password: 'Password123!',
+  firstName: '',
+  lastName: '',
+  teamId: '',
+  roleId: '',
+};
 
 export function UsersPage() {
   const orgUuid = useOrgUuid();
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(emptyForm);
+  const [editing, setEditing] = useState<AppUser | null>(null);
+  const [editForm, setEditForm] = useState({
     email: '',
-    password: 'Password123!',
     firstName: '',
     lastName: '',
     teamId: '',
     roleId: '',
+    password: '',
   });
 
   const usersQuery = useQuery({
@@ -46,14 +65,25 @@ export function UsersPage() {
         roleIds: [Number(form.roleId)],
       }),
     onSuccess: () => {
-      setForm({
-        email: '',
-        password: 'Password123!',
-        firstName: '',
-        lastName: '',
-        teamId: '',
-        roleId: '',
-      });
+      setForm(emptyForm);
+      queryClient.invalidateQueries({ queryKey: ['users', orgUuid] });
+      queryClient.invalidateQueries({ queryKey: ['content', orgUuid] });
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateUser(orgUuid!, editing!.id, {
+        email: editForm.email,
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        teamId: editForm.teamId ? Number(editForm.teamId) : null,
+        roleIds: [Number(editForm.roleId)],
+        ...(editForm.password ? { password: editForm.password } : {}),
+      }),
+    onSuccess: () => {
+      setEditing(null);
       queryClient.invalidateQueries({ queryKey: ['users', orgUuid] });
     },
     onError: (err: Error) => setError(err.message),
@@ -79,11 +109,13 @@ export function UsersPage() {
     createMutation.mutate();
   }
 
+  const orgRoles = rolesQuery.data?.filter((role) => role.organizationId !== null) ?? [];
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">Users</h2>
-        <p className="text-slate-500">Create and manage organization members and role assignments.</p>
+        <p className="text-slate-500">Create, update, and delete organization members and roles.</p>
       </div>
 
       <form onSubmit={onCreate} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-3">
@@ -136,18 +168,93 @@ export function UsersPage() {
           required
         >
           <option value="">Select role</option>
-          {rolesQuery.data
-            ?.filter((role) => role.organizationId !== null)
-            .map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
+          {orgRoles.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
+          ))}
         </select>
         <button type="submit" className="rounded-lg bg-teal-700 px-4 py-2 text-white md:col-span-3">
           Create user
         </button>
       </form>
+
+      {editing && (
+        <form
+          className="grid gap-3 rounded-2xl border border-teal-200 bg-teal-50/40 p-4 md:grid-cols-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setError(null);
+            updateMutation.mutate();
+          }}
+        >
+          <p className="md:col-span-3 text-sm font-medium text-teal-900">
+            Editing {editing.email}
+          </p>
+          <input
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            value={editForm.firstName}
+            onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+            required
+          />
+          <input
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            value={editForm.lastName}
+            onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+            required
+          />
+          <input
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            type="email"
+            value={editForm.email}
+            onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+            required
+          />
+          <input
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            type="password"
+            placeholder="New password (optional)"
+            value={editForm.password}
+            onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+          />
+          <select
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            value={editForm.teamId}
+            onChange={(e) => setEditForm((f) => ({ ...f, teamId: e.target.value }))}
+          >
+            <option value="">No team</option>
+            {teamsQuery.data?.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="rounded-lg border border-slate-200 px-3 py-2"
+            value={editForm.roleId}
+            onChange={(e) => setEditForm((f) => ({ ...f, roleId: e.target.value }))}
+            required
+          >
+            {orgRoles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2 md:col-span-3">
+            <button type="submit" className="rounded-lg bg-teal-700 px-4 py-2 text-white">
+              Save changes
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-4 py-2"
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -172,17 +279,36 @@ export function UsersPage() {
                 <td className="px-4 py-3">{user.team?.name ?? '—'}</td>
                 <td className="px-4 py-3">{user.roles.map((r) => r.name).join(', ')}</td>
                 <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    className="text-red-600 hover:underline"
-                    onClick={() => {
-                      if (window.confirm(`Delete ${user.email}?`)) {
-                        deleteMutation.mutate(user.id);
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      className="text-teal-700 hover:underline"
+                      onClick={() => {
+                        setEditing(user);
+                        setEditForm({
+                          email: user.email,
+                          firstName: user.firstName,
+                          lastName: user.lastName,
+                          teamId: user.teamId ? String(user.teamId) : '',
+                          roleId: user.roles[0] ? String(user.roles[0].id) : '',
+                          password: '',
+                        });
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-red-600 hover:underline"
+                      onClick={() => {
+                        if (window.confirm(`Delete ${user.email}?`)) {
+                          deleteMutation.mutate(user.id);
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

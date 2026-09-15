@@ -250,6 +250,44 @@ async function main() {
         { label: 'Admin', email: admin.email, role: 'admin', org: orgName },
         { label: 'Subscriber', email: subscriber.email, role: 'subscriber', org: orgName },
       );
+
+      const contentViewer = await prisma.user.create({
+        data: {
+          email: `viewer@${orgSlug}.demo.local`,
+          passwordHash,
+          firstName: 'Casey',
+          lastName: 'Viewer',
+          organizationId: organization.id,
+        },
+      });
+      await prisma.userRole.create({
+        data: { userId: contentViewer.id, roleId: orgRoles.content_viewer },
+      });
+      demoAccounts.push({
+        label: 'Content Viewer',
+        email: contentViewer.email,
+        role: 'content_viewer',
+        org: orgName,
+      });
+
+      const contentEditor = await prisma.user.create({
+        data: {
+          email: `editor@${orgSlug}.demo.local`,
+          passwordHash,
+          firstName: 'Riley',
+          lastName: 'Editor',
+          organizationId: organization.id,
+        },
+      });
+      await prisma.userRole.create({
+        data: { userId: contentEditor.id, roleId: orgRoles.content_editor },
+      });
+      demoAccounts.push({
+        label: 'Content Editor',
+        email: contentEditor.email,
+        role: 'content_editor',
+        org: orgName,
+      });
     }
 
     for (let teamIndex = 0; teamIndex < 2; teamIndex += 1) {

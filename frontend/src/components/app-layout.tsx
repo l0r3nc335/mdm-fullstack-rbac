@@ -23,11 +23,15 @@ export function AppLayout() {
 
   const navItems = [
     { to: '/', label: 'Dashboard', show: true },
-    { to: '/organizations', label: 'Organizations', show: hasRole('super_admin') || hasPermission('org:manage') },
+    {
+      to: '/organizations',
+      label: 'Organizations',
+      show: hasRole('super_admin') || hasPermission('org:manage') || hasRole('admin'),
+    },
     { to: '/teams', label: 'Teams', show: hasPermission('team:manage') || Boolean(user?.organization) },
     { to: '/users', label: 'Users', show: hasPermission('user:manage') },
     { to: '/roles', label: 'Roles', show: hasPermission('role:manage') },
-    { to: '/content', label: 'Profile', show: hasPermission('content:read') },
+    { to: '/content', label: 'Content', show: hasPermission('content:read') },
     { to: '/subscription', label: 'Subscription', show: hasPermission('subscription:manage') },
   ].filter((item) => item.show);
 
