@@ -165,8 +165,12 @@ organizationsRouter.patch('/:orgUuid', requirePermission('org:manage'), async (r
     }
 
     const body = updateOrgSchema.parse(req.body);
+    const orgUuid = typeof req.params.orgUuid === 'string' ? req.params.orgUuid : undefined;
+    if (!orgUuid) {
+      throw notFound('Organization UUID required');
+    }
     const existing = await prisma.organization.findUnique({
-      where: { uuid: req.params.orgUuid },
+      where: { uuid: orgUuid },
     });
     if (!existing) {
       throw notFound('Organization not found');

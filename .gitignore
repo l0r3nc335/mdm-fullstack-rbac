@@ -6,3 +6,8 @@ dist/
 .expo/
 frontend/dist/
 backend/dist/
+coverage/
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+*.tsbuildinfo

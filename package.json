@@ -1,0 +1,37 @@
+{
+  "name": "rbac-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant RBAC demo (backend + frontend monorepo)",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace backend && npm run build --workspace frontend",
+    "lint": "npm run lint --workspace frontend",
+    "test": "npm run test:run --workspace backend && npm run test:run --workspace frontend",
+    "test:run": "npm run test",
+    "test:backend": "npm run test:run --workspace backend",
+    "test:frontend": "npm run test:run --workspace frontend",
+    "dev:e2e": "npm run dev --workspace frontend -- --host 127.0.0.1 --port 5175 --strictPort",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "node scripts/assert-port-free.mjs 5175 && start-server-and-test \"npm run dev:e2e\" http://127.0.0.1:5175 \"cypress run --config baseUrl=http://127.0.0.1:5175 --spec cypress/e2e/smoke/**/*.cy.ts\"",
+    "test:all": "npm run test:backend && npm run build --workspace backend && npm run lint && npm run test:frontend && npm run build --workspace frontend && npm run test:e2e",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cypress": "^15.19.0",
+    "husky": "^9.1.7",
+    "start-server-and-test": "^3.0.12",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

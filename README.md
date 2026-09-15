@@ -148,6 +148,29 @@ Responses use `{ data }` or `{ error: { message, code } }`.
 - Mobile app is a single screen (login + content list), not a full admin client
 - Production targets (Supabase / EC2 / Vercel) are documented in project rules but not wired in this local demo
 
+## Testing & CI
+
+This is an npm workspaces monorepo (`backend` + `frontend`). From the repo root:
+
+```bash
+npm install
+npm run test              # Vitest (BE + FE)
+npm run test:e2e          # Cypress smoke (starts FE on :5175)
+npm run test:all          # lint + unit + build + e2e (also used by Husky pre-push)
+```
+
+| Guard | What runs |
+|-------|-----------|
+| Husky `pre-push` | `npm run test:all` — blocks push to any branch if tests fail |
+| GitHub `Test` workflow | Vitest + lint + build on every push/PR; Cypress smoke after unit job |
+| `Deploy Backend` | EC2 rsync + `prisma migrate deploy` on `main`/`master` (backend paths) |
+| `Deploy Frontend` | Vercel production deploy on `main`/`master` (frontend paths) |
+
+Required GitHub secrets for deploy:
+
+- Backend EC2: `EC2_SSH_KEY`, `EC2_HOST`, `EC2_USER`, `EC2_PORT`, `BE_EC2_DEPLOY_PATH`, `BE_EC2_RELOAD_CMD`
+- Frontend Vercel: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VITE_API_URL`
+
 ## Smoke checks
 
 1. Log in as Super Admin → create/rename organizations, switch org context
