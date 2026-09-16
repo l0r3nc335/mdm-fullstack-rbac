@@ -2,6 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ConfirmModal } from '../components/confirm-modal';
 import {
+  DataCard,
+  MobileCardList,
+  PageHeader,
+  TableShell,
+} from '../components/responsive-data';
+import {
   createTeam,
   deleteTeam,
   fetchTeams,
@@ -77,15 +83,71 @@ export function TeamsPage() {
     createMutation.mutate();
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Teams</h2>
-        <p className="text-slate-500">Create, update, and delete teams and their managers.</p>
+  function managerLabel(team: NonNullable<typeof teamsQuery.data>[number]) {
+    if (team.manager) return `${team.manager.firstName} ${team.manager.lastName}`;
+    return String(team.managerUserId);
+  }
+
+  function teamActions(team: NonNullable<typeof teamsQuery.data>[number]) {
+    if (!hasPermission('team:manage')) return null;
+    return (
+      <div className="flex flex-wrap gap-3">
+        {editingId === team.id ? (
+          <>
+            <button
+              type="button"
+              className="text-sm font-medium text-teal-700 hover:underline"
+              onClick={() => {
+                setError(null);
+                updateMutation.mutate();
+              }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              className="text-sm text-slate-500 hover:underline"
+              onClick={() => setEditingId(null)}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="text-sm font-medium text-teal-700 hover:underline"
+            onClick={() => {
+              setEditingId(team.id);
+              setEditName(team.name);
+              setEditManagerUserId(String(team.managerUserId));
+            }}
+          >
+            Edit
+          </button>
+        )}
+        <button
+          type="button"
+          className="text-sm font-medium text-red-600 hover:underline"
+          onClick={() => setDeleteTarget({ id: team.id, name: team.name })}
+        >
+          Delete
+        </button>
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Teams"
+        description="Create, update, and delete teams and their managers."
+      />
 
       {hasPermission('team:manage') && (
-        <form onSubmit={onCreate} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-3">
+        <form
+          onSubmit={onCreate}
+          className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4 md:grid-cols-3"
+        >
           <input
             className="rounded-lg border border-slate-200 px-3 py-2"
             placeholder="Team name"
@@ -114,8 +176,50 @@ export function TeamsPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
+      <MobileCardList>
+        {teamsQuery.data?.map((team) => (
+          <DataCard
+            key={team.id}
+            title={
+              editingId === team.id ? (
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1 font-normal"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              ) : (
+                team.name
+              )
+            }
+            meta={[
+              {
+                label: 'Manager',
+                value:
+                  editingId === team.id ? (
+                    <select
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1"
+                      value={editManagerUserId}
+                      onChange={(e) => setEditManagerUserId(e.target.value)}
+                    >
+                      {usersQuery.data?.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    managerLabel(team)
+                  ),
+              },
+              { label: 'Members', value: team._count?.members ?? '—' },
+            ]}
+            actions={teamActions(team)}
+          />
+        ))}
+      </MobileCardList>
+
+      <TableShell>
+        <table className="min-w-[36rem] w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3">Name</th>
@@ -151,64 +255,17 @@ export function TeamsPage() {
                         </option>
                       ))}
                     </select>
-                  ) : team.manager ? (
-                    `${team.manager.firstName} ${team.manager.lastName}`
                   ) : (
-                    team.managerUserId
+                    managerLabel(team)
                   )}
                 </td>
                 <td className="px-4 py-3">{team._count?.members ?? '—'}</td>
-                <td className="px-4 py-3">
-                  {hasPermission('team:manage') && (
-                    <div className="flex flex-wrap gap-3">
-                      {editingId === team.id ? (
-                        <>
-                          <button
-                            type="button"
-                            className="text-teal-700 hover:underline"
-                            onClick={() => {
-                              setError(null);
-                              updateMutation.mutate();
-                            }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            className="text-slate-500 hover:underline"
-                            onClick={() => setEditingId(null)}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="text-teal-700 hover:underline"
-                          onClick={() => {
-                            setEditingId(team.id);
-                            setEditName(team.name);
-                            setEditManagerUserId(String(team.managerUserId));
-                          }}
-                        >
-                          Edit
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="text-red-600 hover:underline"
-                        onClick={() => setDeleteTarget({ id: team.id, name: team.name })}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </td>
+                <td className="px-4 py-3">{teamActions(team)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </TableShell>
 
       <ConfirmModal
         open={Boolean(deleteTarget)}

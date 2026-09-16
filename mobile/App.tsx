@@ -129,7 +129,12 @@ async function api<T>(
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(json.error?.message ?? `Request failed (${res.status})`);
+    const base = json.error?.message ?? `Request failed (${res.status})`;
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('Retry-After') ?? res.headers.get('RateLimit-Reset');
+      throw new Error(retryAfter ? `${base} (retry after ${retryAfter}s)` : base);
+    }
+    throw new Error(base);
   }
   return json.data as T;
 }

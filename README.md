@@ -7,7 +7,7 @@ Full-stack demo of organization-scoped role-based access control with React, Exp
 | Layer | Tech |
 |-------|------|
 | Frontend | Vite, React 19, TypeScript, Redux Toolkit, TanStack Query, Axios, Tailwind (Tailadmin-style layout) |
-| Backend | Node.js 24, Express, Prisma, JWT, bcrypt |
+| Backend | Node.js 24, Express, Prisma, JWT, bcrypt (cost 12), express-rate-limit |
 | Database | PostgreSQL 16 (Docker) |
 | Mobile | Expo (React Native) |
 
@@ -108,6 +108,31 @@ Enforcement is layered:
 2. Permission middleware on routes
 3. Data scoping (org / team / self) in content services
 4. Frontend menu/actions gated by permissions (API remains authoritative)
+5. Rate limiting (global API + stricter login) and bcrypt password hashing
+
+## Security
+
+### Password hashing
+
+- Passwords are **never stored in plaintext**. The `users.password_hash` column holds a **bcrypt** hash.
+- Hashing is centralized in `backend/src/services/password.ts` (`hashPassword` / `verifyPassword`).
+- Default cost factor is **12** (`BCRYPT_ROUNDS`), used by seed, user create, and user password update.
+- Create/update password policy: min 8 characters, at least one uppercase, one lowercase, and one digit.
+- Login compares the submitted password with `bcrypt.compare` only; the API never returns password hashes.
+
+### Rate limiting
+
+Production-oriented limits via `express-rate-limit`:
+
+| Limiter | Default | Scope |
+|---------|---------|--------|
+| Global API | 300 requests / 15 minutes / IP | All `/api/*` except `/api/health` |
+| Login | 10 attempts / 15 minutes / IP+email | `POST /api/auth/login` |
+
+- Standard `RateLimit-*` headers are returned; clients receive `{ error: { message, code: "RATE_LIMITED" | "LOGIN_RATE_LIMITED" } }` with HTTP **429**.
+- Configure via env: `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`, `LOGIN_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_WINDOW_MS`.
+- Set `TRUST_PROXY=true` behind nginx so limits use the real client IP.
+- Web and mobile clients surface 429 messages (including retry hints when headers are present).
 
 ## Multi-tenancy
 
@@ -119,7 +144,7 @@ Enforcement is layered:
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | `/api/auth/login` | Email/password → JWT + user/roles/permissions |
+| POST | `/api/auth/login` | Email/password → JWT (rate-limited; bcrypt verify) |
 | GET | `/api/auth/me` | Current user |
 | GET | `/api/auth/demo-accounts` | Seeded login presets |
 | GET/POST | `/api/organizations` | List / create (super admin) |
@@ -136,6 +161,8 @@ Responses use `{ data }` or `{ error: { message, code } }`.
 
 - **Prisma** for schema, migrations, and typed queries
 - **JWT** access tokens (8h) — suitable for a demo, not production session management
+- **bcrypt** password hashes (cost 12) — plaintext never persisted
+- **express-rate-limit** for global API and login brute-force protection
 - **Content items** store personal profile JSON so managers can view team profiles without a separate HR module
 - **Tailadmin-inspired** admin shell (sidebar + tables) implemented with Tailwind OSS patterns — not the commercial Tailadmin Pro package
 
@@ -143,10 +170,10 @@ Responses use `{ data }` or `{ error: { message, code } }`.
 
 - No refresh tokens / token revocation list
 - No email verification or password reset
-- Demo password is shared and committed to seed docs only (not hashed plaintext in the DB)
+- Demo accounts share one known password for convenience; the DB still stores only bcrypt hashes
 - Soft multi-tenant isolation for super admin via UI org switcher
-- Mobile app is a single screen (login + content list), not a full admin client
-- Production targets (Supabase / EC2 / Vercel) are documented in project rules but not wired in this local demo
+- In-memory rate-limit store (per Node process); use Redis-backed store for multi-instance production
+- Production targets (Supabase / EC2 / Vercel) are documented in project rules; deploy workflows target EC2
 
 ## Testing & CI
 

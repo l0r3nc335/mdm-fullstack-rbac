@@ -17,10 +17,10 @@ const toneClass: Record<NonNullable<StatCardProps['tone']>, string> = {
 export function StatCard({ label, value, hint, tone = 'default' }: StatCardProps) {
   const isNumeric = typeof value === 'number' || (typeof value === 'string' && /^[\d.%—–-]+$/.test(value));
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-100 sm:rounded-2xl sm:p-5">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <p
-        className={`mt-2 font-semibold ${isNumeric ? 'text-3xl tabular-nums' : 'text-xl leading-snug'} ${toneClass[tone]}`}
+        className={`mt-2 font-semibold ${isNumeric ? 'text-2xl tabular-nums sm:text-3xl' : 'text-lg leading-snug sm:text-xl'} ${toneClass[tone]}`}
       >
         {value}
       </p>
@@ -39,7 +39,7 @@ type PanelProps = {
 export function DashboardPanel({ title, subtitle, children, className = '' }: PanelProps) {
   return (
     <section
-      className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100 ${className}`}
+      className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-100 sm:rounded-2xl sm:p-5 ${className}`}
     >
       <div className="mb-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h3>

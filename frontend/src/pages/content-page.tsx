@@ -2,6 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ConfirmModal } from '../components/confirm-modal';
 import {
+  DataCard,
+  EmptyState,
+  MobileCardList,
+  PageHeader,
+  TableShell,
+} from '../components/responsive-data';
+import {
   emptyProfileForm,
   ProfileForm,
   profileToForm,
@@ -205,25 +212,23 @@ export function ContentPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Content</h2>
-          <p className="text-slate-500">
-            Role-scoped directory of content records. Your own editable profile lives under Profile.
-          </p>
-        </div>
-        <input
-          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-          placeholder="Search name, job, department…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Content"
+        description="Role-scoped directory of content records. Your own editable profile lives under Profile."
+        actions={
+          <input
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm sm:w-64"
+            placeholder="Search name, job, department…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        }
+      />
 
       {canCreate && (
         <form
-          className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-3"
+          className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4 md:grid-cols-3"
           onSubmit={(event) => {
             event.preventDefault();
             setError(null);
@@ -263,66 +268,106 @@ export function ContentPage() {
         </form>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-100">
-        <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Person</th>
-              <th className="px-4 py-3 font-semibold">Title</th>
-              <th className="px-4 py-3 font-semibold">Job</th>
-              <th className="px-4 py-3 font-semibold">Department</th>
-              <th className="px-4 py-3 font-semibold">Phone</th>
-              <th className="px-4 py-3 font-semibold">Type</th>
-              <th className="px-4 py-3 font-semibold">Avatar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                  No content records in your current scope.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((item) => {
-                const isActive = item.id === selectedId;
-                return (
-                  <tr
-                    key={item.id}
-                    className={`cursor-pointer border-b border-slate-100 transition hover:bg-teal-50/60 ${
-                      isActive ? 'bg-teal-50' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectedId(item.id);
-                      setError(null);
-                      setMessage(null);
-                    }}
-                  >
-                    <td className="px-4 py-3 font-medium text-slate-900">
-                      {personName(item)}
-                      {item.userId === user?.id ? (
-                        <span className="ml-2 text-xs font-normal text-teal-700">(you)</span>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{item.title}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.jobTitle ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.department ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.phone ?? '—'}</td>
-                    <td className="px-4 py-3 capitalize text-slate-600">
-                      {item.employmentType?.replace(/_/g, ' ') ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{item.hasAvatar ? 'Yes' : 'No'}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {filtered.length === 0 ? (
+        <EmptyState>No content records in your current scope.</EmptyState>
+      ) : (
+        <>
+          <MobileCardList>
+            {filtered.map((item) => {
+              const isActive = item.id === selectedId;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`w-full text-left transition ${
+                    isActive ? 'ring-2 ring-teal-600 ring-offset-2 rounded-xl' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectedId(item.id);
+                    setError(null);
+                    setMessage(null);
+                  }}
+                >
+                  <DataCard
+                    title={
+                      <>
+                        {personName(item)}
+                        {item.userId === user?.id ? (
+                          <span className="ml-2 text-xs font-normal text-teal-700">(you)</span>
+                        ) : null}
+                      </>
+                    }
+                    subtitle={item.title}
+                    meta={[
+                      { label: 'Job', value: item.jobTitle ?? '—' },
+                      { label: 'Dept', value: item.department ?? '—' },
+                      { label: 'Phone', value: item.phone ?? '—' },
+                      {
+                        label: 'Type',
+                        value: item.employmentType?.replace(/_/g, ' ') ?? '—',
+                      },
+                      { label: 'Avatar', value: item.hasAvatar ? 'Yes' : 'No' },
+                    ]}
+                  />
+                </button>
+              );
+            })}
+          </MobileCardList>
+
+          <TableShell>
+            <table className="min-w-[52rem] w-full text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Person</th>
+                  <th className="px-4 py-3 font-semibold">Title</th>
+                  <th className="px-4 py-3 font-semibold">Job</th>
+                  <th className="px-4 py-3 font-semibold">Department</th>
+                  <th className="px-4 py-3 font-semibold">Phone</th>
+                  <th className="px-4 py-3 font-semibold">Type</th>
+                  <th className="px-4 py-3 font-semibold">Avatar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item) => {
+                  const isActive = item.id === selectedId;
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`cursor-pointer border-b border-slate-100 transition hover:bg-teal-50/60 ${
+                        isActive ? 'bg-teal-50' : ''
+                      }`}
+                      onClick={() => {
+                        setSelectedId(item.id);
+                        setError(null);
+                        setMessage(null);
+                      }}
+                    >
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {personName(item)}
+                        {item.userId === user?.id ? (
+                          <span className="ml-2 text-xs font-normal text-teal-700">(you)</span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{item.title}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.jobTitle ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.department ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.phone ?? '—'}</td>
+                      <td className="px-4 py-3 capitalize text-slate-600">
+                        {item.employmentType?.replace(/_/g, ' ') ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{item.hasAvatar ? 'Yes' : 'No'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableShell>
+        </>
+      )}
 
       <p className="text-sm text-slate-500">
         Showing {filtered.length} of {items.length} record{items.length === 1 ? '' : 's'}.
-        Click a row to view or edit details.
+        Tap a card or click a row to view or edit details.
       </p>
 
       {selected && (

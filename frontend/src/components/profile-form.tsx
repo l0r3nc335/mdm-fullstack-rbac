@@ -106,9 +106,9 @@ export function ProfileForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+    <form onSubmit={onSubmit} className="space-y-4 sm:space-y-6">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:rounded-2xl sm:p-6">
+        <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-start">
           <AvatarPicker
             imageUrl={avatarUrl}
             canEdit={canEdit}
@@ -139,7 +139,7 @@ export function ProfileForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:rounded-2xl sm:p-6">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Biodata</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Field label="Date of birth">
@@ -178,7 +178,7 @@ export function ProfileForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:rounded-2xl sm:p-6">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Address</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="md:col-span-2">
@@ -226,7 +226,7 @@ export function ProfileForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:rounded-2xl sm:p-6">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Employment</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Field label="Job title">

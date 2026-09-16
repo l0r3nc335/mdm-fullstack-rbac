@@ -155,8 +155,8 @@ function PlatformDashboard({ stats }: { stats: DashboardStats }) {
       </div>
 
       <DashboardPanel title="Tenant comparison" subtitle="Seats, plan, and headcount by organization">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+        <div className="-mx-1 overflow-x-auto overscroll-x-contain sm:mx-0">
+          <table className="min-w-[36rem] w-full text-left text-sm">
             <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-2 py-2 font-semibold">Organization</th>
@@ -503,10 +503,10 @@ export function DashboardPage() {
   const headline = roleHeadline(hasRole);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-900">{headline}</h2>
-        <p className="mt-1 text-slate-500">
+        <h2 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{headline}</h2>
+        <p className="mt-1 text-sm text-slate-500 sm:text-base">
           Welcome back, {user?.firstName}.{' '}
           {stats ? scopeLabel(stats.scope) : 'Loading role-based metrics…'}
           {hasRole('super_admin') && !orgUuid
@@ -516,13 +516,13 @@ export function DashboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500 sm:rounded-2xl sm:p-8">
           Loading dashboard statistics…
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800 sm:rounded-2xl">
           {(error as Error).message || 'Failed to load dashboard statistics'}
         </div>
       ) : null}

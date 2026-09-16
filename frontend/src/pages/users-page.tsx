@@ -2,6 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ConfirmModal } from '../components/confirm-modal';
 import {
+  DataCard,
+  MobileCardList,
+  PageHeader,
+  TableShell,
+} from '../components/responsive-data';
+import {
   createUser,
   deleteUser,
   fetchRoles,
@@ -113,14 +119,26 @@ export function UsersPage() {
 
   const orgRoles = rolesQuery.data?.filter((role) => role.organizationId !== null) ?? [];
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Users</h2>
-        <p className="text-slate-500">Create, update, and delete organization members and roles.</p>
-      </div>
+  function startEdit(user: AppUser) {
+    setEditing(user);
+    setEditForm({
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      teamId: user.teamId ? String(user.teamId) : '',
+      roleId: user.roles[0] ? String(user.roles[0].id) : '',
+      password: '',
+    });
+  }
 
-      <form onSubmit={onCreate} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-3">
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Users"
+        description="Create, update, and delete organization members and roles."
+      />
+
+      <form onSubmit={onCreate} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4 md:grid-cols-3">
         <input
           className="rounded-lg border border-slate-200 px-3 py-2"
           placeholder="First name"
@@ -145,11 +163,12 @@ export function UsersPage() {
         />
         <input
           className="rounded-lg border border-slate-200 px-3 py-2"
-          placeholder="Password"
+          placeholder="Password (8+ chars, upper, lower, number)"
           type="password"
           value={form.password}
           onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
           required
+          minLength={8}
         />
         <select
           className="rounded-lg border border-slate-200 px-3 py-2"
@@ -183,7 +202,7 @@ export function UsersPage() {
 
       {editing && (
         <form
-          className="grid gap-3 rounded-2xl border border-teal-200 bg-teal-50/40 p-4 md:grid-cols-3"
+          className="grid gap-3 rounded-xl border border-teal-200 bg-teal-50/40 p-3 sm:rounded-2xl sm:p-4 md:grid-cols-3"
           onSubmit={(event) => {
             event.preventDefault();
             setError(null);
@@ -215,9 +234,10 @@ export function UsersPage() {
           <input
             className="rounded-lg border border-slate-200 px-3 py-2"
             type="password"
-            placeholder="New password (optional)"
+            placeholder="New password (optional, 8+ chars, upper/lower/number)"
             value={editForm.password}
             onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+            minLength={8}
           />
           <select
             className="rounded-lg border border-slate-200 px-3 py-2"
@@ -260,8 +280,40 @@ export function UsersPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
+      <MobileCardList>
+        {usersQuery.data?.map((user) => (
+          <DataCard
+            key={user.id}
+            title={`${user.firstName} ${user.lastName}`}
+            subtitle={user.email}
+            meta={[
+              { label: 'Team', value: user.team?.name ?? '—' },
+              { label: 'Roles', value: user.roles.map((r) => r.name).join(', ') || '—' },
+            ]}
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-teal-700"
+                  onClick={() => startEdit(user)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-red-600"
+                  onClick={() => setDeleteTarget(user)}
+                >
+                  Delete
+                </button>
+              </>
+            }
+          />
+        ))}
+      </MobileCardList>
+
+      <TableShell>
+        <table className="min-w-[40rem] w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3">Name</th>
@@ -285,17 +337,7 @@ export function UsersPage() {
                     <button
                       type="button"
                       className="text-teal-700 hover:underline"
-                      onClick={() => {
-                        setEditing(user);
-                        setEditForm({
-                          email: user.email,
-                          firstName: user.firstName,
-                          lastName: user.lastName,
-                          teamId: user.teamId ? String(user.teamId) : '',
-                          roleId: user.roles[0] ? String(user.roles[0].id) : '',
-                          password: '',
-                        });
-                      }}
+                      onClick={() => startEdit(user)}
                     >
                       Edit
                     </button>
@@ -312,7 +354,7 @@ export function UsersPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableShell>
 
       <ConfirmModal
         open={Boolean(deleteTarget)}
