@@ -1,18 +1,19 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate, signToken } from '../middleware/auth.js';
+import { loginRateLimiter } from '../middleware/rate-limit.js';
+import { verifyPassword } from '../services/password.js';
 import { unauthorized } from '../utils/errors.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(1).max(128),
 });
 
 export const authRouter = Router();
 
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', loginRateLimiter, async (req, res, next) => {
   try {
     const body = loginSchema.parse(req.body);
 
@@ -38,7 +39,7 @@ authRouter.post('/login', async (req, res, next) => {
       throw unauthorized('Invalid email or password');
     }
 
-    const valid = await bcrypt.compare(body.password, user.passwordHash);
+    const valid = await verifyPassword(body.password, user.passwordHash);
     if (!valid) {
       throw unauthorized('Invalid email or password');
     }

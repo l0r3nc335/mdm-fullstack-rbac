@@ -173,7 +173,7 @@ function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/20"
+        className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/20 sm:p-5"
       >
         {children}
       </div>

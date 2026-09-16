@@ -31,7 +31,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     let message = error.message ?? 'Request failed';
+    const status = error.response?.status as number | undefined;
     const data = error.response?.data;
+    const headers = error.response?.headers as Record<string, string> | undefined;
+
     if (data instanceof Blob) {
       try {
         const text = await data.text();
@@ -43,6 +46,14 @@ api.interceptors.response.use(
     } else if (data?.error?.message) {
       message = data.error.message;
     }
+
+    if (status === 429) {
+      const retryAfter = headers?.['retry-after'] ?? headers?.['ratelimit-reset'];
+      message = retryAfter
+        ? `${message} (retry after ${retryAfter}s)`
+        : message;
+    }
+
     return Promise.reject(new Error(message));
   },
 );

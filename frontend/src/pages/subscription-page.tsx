@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSubscription, updateSubscription } from '../lib/services';
 import { useOrgUuid, usePermissions } from '../hooks/redux';
+import { PageHeader } from '../components/responsive-data';
 
 export function SubscriptionPage() {
   const orgUuid = useOrgUuid();
@@ -52,13 +53,16 @@ export function SubscriptionPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Subscription</h2>
-        <p className="text-slate-500">Managed by the organization subscriber (and admins).</p>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Subscription"
+        description="Managed by the organization subscriber (and admins)."
+      />
 
-      <form onSubmit={onSave} className="max-w-lg space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+      <form
+        onSubmit={onSave}
+        className="w-full max-w-lg space-y-4 rounded-xl border border-slate-200 bg-white p-4 sm:rounded-2xl sm:p-5"
+      >
         <label className="block text-sm">
           <span className="mb-1 block font-medium">Plan</span>
           <select

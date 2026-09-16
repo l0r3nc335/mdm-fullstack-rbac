@@ -2,6 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ConfirmModal, PromptModal } from '../components/confirm-modal';
 import {
+  DataCard,
+  MobileCardList,
+  PageHeader,
+  TableShell,
+} from '../components/responsive-data';
+import {
   createOrganization,
   deleteOrganization,
   fetchOrganizations,
@@ -58,19 +64,62 @@ export function OrganizationsPage() {
     createMutation.mutate(name);
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Organizations</h2>
-        <p className="text-slate-500">
-          Super admin creates and deletes tenants. Org admins can rename their own organization.
-        </p>
+  function orgActions(org: NonNullable<typeof orgsQuery.data>[number]) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {(hasRole('super_admin') || user?.organizationId === org.id) && (
+          <button
+            type="button"
+            className="rounded-md bg-slate-900 px-2.5 py-1 text-xs text-white"
+            onClick={() =>
+              dispatch(
+                setActiveOrganization({
+                  id: org.id,
+                  uuid: org.uuid,
+                  name: org.name,
+                }),
+              )
+            }
+          >
+            Work in org
+          </button>
+        )}
+        {canRenameOrg(org.id) && (
+          <button
+            type="button"
+            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs"
+            onClick={() => setRenameTarget({ uuid: org.uuid, name: org.name })}
+          >
+            Rename
+          </button>
+        )}
+        {canDelete && (
+          <button
+            type="button"
+            className="rounded-md border border-red-200 px-2.5 py-1 text-xs text-red-600"
+            onClick={() => setDeleteTarget({ uuid: org.uuid, name: org.name })}
+          >
+            Delete
+          </button>
+        )}
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Organizations"
+        description="Super admin creates and deletes tenants. Org admins can rename their own organization."
+      />
 
       {canCreate && (
-        <form onSubmit={onCreate} className="flex flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <form
+          onSubmit={onCreate}
+          className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:flex-wrap sm:rounded-2xl sm:p-4"
+        >
           <input
-            className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2"
+            className="w-full min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 sm:min-w-[12rem]"
             placeholder="New organization name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -78,7 +127,7 @@ export function OrganizationsPage() {
           />
           <button
             type="submit"
-            className="rounded-lg bg-teal-700 px-4 py-2 text-white hover:bg-teal-800"
+            className="rounded-lg bg-teal-700 px-4 py-2 text-white hover:bg-teal-800 sm:shrink-0"
           >
             Create
           </button>
@@ -87,8 +136,23 @@ export function OrganizationsPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
+      <MobileCardList>
+        {orgsQuery.data?.map((org) => (
+          <DataCard
+            key={org.id}
+            title={org.name}
+            subtitle={<span className="font-mono text-xs">{org.uuid}</span>}
+            meta={[
+              { label: 'Users', value: org._count?.users ?? '—' },
+              { label: 'Teams', value: org._count?.teams ?? '—' },
+            ]}
+            actions={orgActions(org)}
+          />
+        ))}
+      </MobileCardList>
+
+      <TableShell>
+        <table className="min-w-[44rem] w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3">Name</th>
@@ -105,50 +169,12 @@ export function OrganizationsPage() {
                 <td className="px-4 py-3 font-mono text-xs text-slate-500">{org.uuid}</td>
                 <td className="px-4 py-3">{org._count?.users ?? '—'}</td>
                 <td className="px-4 py-3">{org._count?.teams ?? '—'}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    {(hasRole('super_admin') || user?.organizationId === org.id) && (
-                      <button
-                        type="button"
-                        className="rounded-md bg-slate-900 px-2.5 py-1 text-xs text-white"
-                        onClick={() =>
-                          dispatch(
-                            setActiveOrganization({
-                              id: org.id,
-                              uuid: org.uuid,
-                              name: org.name,
-                            }),
-                          )
-                        }
-                      >
-                        Work in org
-                      </button>
-                    )}
-                    {canRenameOrg(org.id) && (
-                      <button
-                        type="button"
-                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs"
-                        onClick={() => setRenameTarget({ uuid: org.uuid, name: org.name })}
-                      >
-                        Rename
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        type="button"
-                        className="rounded-md border border-red-200 px-2.5 py-1 text-xs text-red-600"
-                        onClick={() => setDeleteTarget({ uuid: org.uuid, name: org.name })}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </td>
+                <td className="px-4 py-3">{orgActions(org)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </TableShell>
 
       <PromptModal
         open={Boolean(renameTarget)}

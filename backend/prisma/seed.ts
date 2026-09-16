@@ -1,5 +1,5 @@
-import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../src/services/password.js';
 
 const prisma = new PrismaClient();
 
@@ -105,7 +105,7 @@ async function main() {
     await prisma.permission.create({ data: permission });
   }
 
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   const superAdminRole = await prisma.role.create({
     data: {

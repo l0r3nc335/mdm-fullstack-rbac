@@ -2,6 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { ConfirmModal } from '../components/confirm-modal';
 import {
+  DataCard,
+  MobileCardList,
+  PageHeader,
+  TableShell,
+} from '../components/responsive-data';
+import {
   createRole,
   deleteRole,
   fetchPermissions,
@@ -83,17 +89,15 @@ export function RolesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Roles & permissions</h2>
-        <p className="text-slate-500">
-          Includes content viewer (read-only) and content editor (full access) for the assignment demo.
-        </p>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Roles & permissions"
+        description="Includes content viewer (read-only) and content editor (full access) for the assignment demo."
+      />
 
       <form
         onSubmit={onCreate}
-        className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4"
+        className="space-y-4 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4"
       >
         <h3 className="font-semibold">Create role</h3>
         <div className="grid gap-3 md:grid-cols-3">
@@ -121,7 +125,7 @@ export function RolesPage() {
             onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
           />
         </div>
-        <div className="grid gap-2 md:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {permissionsQuery.data?.map((permission) => {
             const checked = createForm.permissionIds.includes(permission.id);
             return (
@@ -154,8 +158,58 @@ export function RolesPage() {
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
+      <MobileCardList>
+        {rolesQuery.data?.map((role) => (
+          <DataCard
+            key={role.id}
+            title={role.name}
+            subtitle={<span className="font-mono text-xs">{role.code}</span>}
+            meta={[
+              {
+                label: 'Permissions',
+                value: (
+                  <div className="flex flex-wrap gap-1">
+                    {role.permissions.map((p) => (
+                      <span key={p.id} className="rounded bg-slate-100 px-2 py-0.5 text-xs">
+                        {p.code}
+                      </span>
+                    ))}
+                  </div>
+                ),
+              },
+              { label: 'Users', value: role.userCount ?? 0 },
+            ]}
+            actions={
+              role.organizationId !== null ? (
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-teal-700"
+                    onClick={() => {
+                      setSelectedRoleId(role.id);
+                      setSelectedPermissionIds(role.permissions.map((p) => p.id));
+                    }}
+                  >
+                    Edit permissions
+                  </button>
+                  {!role.isSystem && (
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-red-600"
+                      onClick={() => setDeleteTarget({ id: role.id, name: role.name })}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              ) : undefined
+            }
+          />
+        ))}
+      </MobileCardList>
+
+      <TableShell>
+        <table className="min-w-[48rem] w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3">Role</th>
@@ -209,14 +263,14 @@ export function RolesPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableShell>
 
       {selectedRoleId !== null && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 sm:rounded-2xl sm:p-5">
           <h3 className="font-semibold">
             Edit permissions — {rolesQuery.data?.find((r) => r.id === selectedRoleId)?.name}
           </h3>
-          <div className="mt-4 grid gap-2 md:grid-cols-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {permissionsQuery.data?.map((permission) => {
               const checked = selectedPermissionIds.includes(permission.id);
               return (
@@ -240,7 +294,7 @@ export function RolesPage() {
               );
             })}
           </div>
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
               className="rounded-lg bg-teal-700 px-4 py-2 text-white"

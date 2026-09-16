@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/require-permission.js';
 import { resolveTenant } from '../middleware/tenant.js';
+import { hashPassword, passwordPolicySchema } from '../services/password.js';
 import { notFound } from '../utils/errors.js';
 
 const createUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: passwordPolicySchema,
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   teamId: z.number().int().positive().nullable().optional(),
@@ -25,7 +25,7 @@ const updateUserSchema = z.object({
   managerId: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional(),
   roleIds: z.array(z.number().int().positive()).optional(),
-  password: z.string().min(8).optional(),
+  password: passwordPolicySchema.optional(),
 });
 
 function mapUser(user: {
@@ -88,7 +88,7 @@ usersRouter.post('/', requirePermission('user:manage'), async (req, res, next) =
       throw notFound('One or more roles not found in this organization');
     }
 
-    const passwordHash = await bcrypt.hash(body.password, 10);
+    const passwordHash = await hashPassword(body.password);
 
     const user = await prisma.user.create({
       data: {
@@ -175,9 +175,7 @@ usersRouter.patch('/:id', requirePermission('user:manage'), async (req, res, nex
       });
     }
 
-    const passwordHash = body.password
-      ? await bcrypt.hash(body.password, 10)
-      : undefined;
+    const passwordHash = body.password ? await hashPassword(body.password) : undefined;
 
     const user = await prisma.user.update({
       where: { id },

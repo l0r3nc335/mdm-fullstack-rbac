@@ -57,9 +57,9 @@ export function LoginPage() {
       />
       <div className="absolute inset-0 bg-slate-950/45" aria-hidden />
 
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/20 bg-white/90 p-8 shadow-xl shadow-slate-950/30 backdrop-blur-md">
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/20 bg-white/90 p-5 shadow-xl shadow-slate-950/30 backdrop-blur-md sm:p-8">
         <p className="text-xs uppercase tracking-[0.25em] text-teal-700">Multi-tenant RBAC</p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-900">Sign in</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Sign in</h1>
         <p className="mt-2 text-sm text-slate-500">
           Pick a seeded demo account, then authenticate against the Express API.
         </p>

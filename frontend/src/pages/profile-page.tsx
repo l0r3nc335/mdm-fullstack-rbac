@@ -5,6 +5,7 @@ import {
   ProfileForm,
   profileToForm,
 } from '../components/profile-form';
+import { PageHeader } from '../components/responsive-data';
 import { useOrgUuid, usePermissions } from '../hooks/redux';
 import {
   deleteAvatar,
@@ -132,14 +133,13 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Profile</h2>
-        <p className="text-slate-500">
-          Your personal profile
-          {profile.user ? ` · ${profile.user.firstName} ${profile.user.lastName}` : ''}.
-        </p>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Profile"
+        description={`Your personal profile${
+          profile.user ? ` · ${profile.user.firstName} ${profile.user.lastName}` : ''
+        }.`}
+      />
 
       <ProfileForm
         form={form}
